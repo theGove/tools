@@ -3,7 +3,7 @@ import requests
 import sys
 import pprint
 import json
-
+import os
 
 #   Be in the root of the book to publish and run
 #   python ../tools/publish.py 1 
@@ -46,7 +46,12 @@ def publish(file_name,file_contents):
 
 
     output = pypandoc.convert_text(file_contents, 'html', format='md')
-    deploymentId = ""
+
+    raw_path = os.path.join(os.path.dirname(__file__), '..', 'tools', 'deploymentId.txt')
+    file_path = os.path.abspath(raw_path)
+    with open(file_path, 'r') as f:
+        deploymentId = f.read()
+
     url = 'https://script.google.com/macros/s/'+deploymentId+'/exec'
     payload = {'mode': 'publish',
                'content':output,
@@ -77,7 +82,7 @@ def main():
                 file_contents = file.read()
             
         except FileNotFoundError:
-            print(f"Error: The file '{file_path}' was not found.")
+            print("Error: The file not found:". file_name+".md")
         except Exception as e:
             print(f"An error occurred: {e}")        
         publish(file_name,file_contents)
