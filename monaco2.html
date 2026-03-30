@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Monaco Editor Example</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />    
+        <style>
+            .material-symbols-outlined {
+            font-variation-settings:
+            'FILL' 0,
+            'wght' 400,
+            'GRAD' 0,
+            'opsz' 24
+            }
+            </style>
+    <script>            
+      function tag(id){return document.getElementById(id)}
+    </script>            
+    <style>
+        .monaco {
+            width: 100%;
+            margin-bottom:10px;
+            
+        }
+        .monaco-bar{
+            margin: 0 ;
+            text-align:right;
+            background-color: #ccc;
+        }
+        .monaco-tool{
+            margin: 5px 5px 5px 0;
+            background-color: #eee;
+            cursor:pointer;
+            font-size:40px;
+        }
+        .editor-holder {
+            padding-top: 10px;
+            padding-bottom: 10px;
+            background-color:#1e1e1e;
+        }    
+        .editor {
+            margin: 0;
+            padding: 0;
+        }
+        .console {
+            margin: 0;
+            padding: 0;
+            background-color: #ddd;
+            position:relative;
+            min-height:30px;
+            font-size:20px
+        }  
+        .console-line{
+            color:black;
+            font-family: Consolas, "Courier New", monospace;
+            padding:1px 6px;
+        }      
+        pre.code{
+            color:lime;
+            background-color:#333;
+            padding:0 10px;        
+            margin:1rem 0;
+            font-size:20px
+        }
+        span.exitButton{
+            position: absolute; /* Positions the span relative to its parent container */
+            top: 3px;             /* Aligns the top edge with the container's top edge */
+            right: 3px;           /* Aligns the right edge with the container's right edge */
+            padding: 0; 
+            background-color:#ccc;
+            cursor:pointer;
+        }
+
+    </style>
+
+    <script>
+    const codeEditors={}
+    function initMonaco(){
+        if(typeof require !== "function"){
+            setTimeout(initMonaco, 100)
+            return
+        }
+        require.config({ paths: { 'vs': 'https://unpkg.com/monaco-editor@latest/min/vs' }});
+        window.MonacoEnvironment = { getWorkerUrl: () => proxy };
+
+        function proxy(){ URL.createObjectURL(new Blob([`
+            self.MonacoEnvironment = {
+                baseUrl: 'https://unpkg.com/monaco-editor@latest/min/'
+            };
+            importScripts('https://unpkg.com/monaco-editor@latest/min/vs/base/worker/workerMain.js');
+        `], { type: 'text/javascript' }));
+        }
+        require(["vs/editor/editor.main"], function () {
+            const pres = document.querySelectorAll("pre.code")
+            for(let x=0;x < pres.length;x++){
+                const pre = pres[x]
+
+                if(pre.getAttribute("data-convert") === "false") continue
+
+                pre.id="original-code"+x
+                pre.style.display="none"
+
+                const container = document.createElement("div")
+                container.className = "monaco"
+                container.id = "code"+x
+                const code = pre.innerText.trim()
+                console.log(code)
+
+                const editorHolder = document.createElement("div")
+                editorHolder.className = "editor-holder"
+
+                const editor = document.createElement("div")
+                editor.className = "editor"
+
+                editorHolder.appendChild(editor)
+
+                const monacoBar = document.createElement("div")
+                monacoBar.className = "monaco-bar"
+
+                monacoBar.appendChild(addTool("content_copy",copyCode))
+                monacoBar.appendChild(addTool("refresh",resetCode))
+                monacoBar.appendChild(addTool("play_arrow",runCode))
+
+                const con = document.createElement("div")
+                con.className = "console"
+                con.style.display = "none"
+                const span = document.createElement("span")
+                span.className = "exitButton"
+                span.classList.add("material-symbols-outlined")
+                span.appendChild(document.createTextNode("close"))
+                span.addEventListener("click", clearConsole)
+                con.appendChild(span)
+
+                
+                container.replaceChildren(editorHolder)
+                container.appendChild(monacoBar)
+                container.appendChild(con)
+                pre.after(container)
+
+
+                codeEditors["code"+x] = monaco.editor.create(editor, {
+                    value: code,
+                    language: 'javascript',
+                    theme: 'vs-dark',
+                    lineHeight:25,
+                    fontSize: 20,
+                    folding: false, 
+                    minimap: {
+                        enabled: false
+                    }                    
+                });
+                let lines = codeEditors["code"+x].getModel().getLineCount()+2
+                const contentHeight = lines * 25; // Use the same lineHeight as in options
+                const editorElement = codeEditors["code"+x].getDomNode();
+
+                // Set the height of the editor's DOM element
+                editorElement.style.height = `${contentHeight}px`;
+
+                // Tell the editor to re-layout with the new dimensions
+                codeEditors["code"+x].layout({ width: editorElement.clientWidth, height: contentHeight });
+            }
+
+        }); 
+
+    }    
+
+    function addTool(label, fn){
+        const tool = document.createElement("span")
+        tool.className = "material-symbols-outlined monaco-tool"
+        tool.appendChild(document.createTextNode(label))
+        tool.addEventListener("click", fn)
+        return tool
+    }
+
+    function copyCode(evt){
+        let elem = evt.target
+        while(!elem.classList.contains("monaco")){
+            elem=elem.parentElement
+        }
+        const editor = codeEditors[elem.id]
+        console.log(editor.getValue())
+        navigator.clipboard.writeText(editor.getValue())
+        
+    }
+
+    function clearConsole(evt){
+        let elem = evt.target
+        while(!elem.classList.contains("monaco")){
+            elem=elem.parentElement
+        }
+        const con = elem.querySelector(".console")
+        con.style.display = "none"
+        con.querySelectorAll(".console-line").forEach(line => line.remove())
+        
+    }
+
+    function resetCode(evt) {
+        let elem = evt.target
+        while(!elem.classList.contains("monaco")){
+            elem=elem.parentElement
+        }
+
+        window.newConsole.exampleOutput = elem.querySelector(".console")
+        const code = codeEditors[elem.id].setValue(tag("original-"+elem.id).innerText);
+        clearConsole(evt)
+    }
+
+    function runCode(evt) {
+        let elem = evt.target
+        while(!elem.classList.contains("monaco")){
+            elem=elem.parentElement
+        }
+
+        window.newConsole.exampleOutput = elem.querySelector(".console")
+        const code = codeEditors[elem.id].getValue();
+        const s = document.createElement("script")
+        s.replaceChildren("function deltaGammaBettaZeta(){"+code+"}deltaGammaBettaZeta()")
+        document.head.appendChild(s)
+
+    }
+    function print(...args){
+         window.newConsole.log.apply(console, [...args]);
+    }
+    function init(){
+        const s = document.createElement("script")
+        s.src="https://unpkg.com/monaco-editor@latest/min/vs/loader.js"
+        document.head.appendChild(s)
+        
+        window.newConsole={}
+        initMonaco()
+        // configure console.log to log to the browser console as well as the current example
+        window.newConsole.log = console.log;
+        console.log = function(...args) {
+            window.newConsole.log.apply(console, [...args]);
+
+            try{
+                //window.newConsole.exampleOutput.style.display = "block"
+                const div = document.createElement("div")
+                div.className = "console-line"
+                div.appendChild(document.createTextNode(args.join(" ")))
+                window.newConsole.exampleOutput.appendChild(div)
+                window.newConsole.exampleOutput.style.display = "block"
+            }catch(e){
+
+
+            }
+        };
+
+        window.addEventListener('error', (event) => {
+
+            if(typeof window.newConsole.exampleOutput==="object"){
+            const div = document.createElement("div")
+            div.className = "console-line"
+            div.style.color = "red"
+            div.appendChild(document.createTextNode(`[line ${event.lineno}] ${event.message} `))
+            window.newConsole.exampleOutput.appendChild(div)
+            window.newConsole.exampleOutput.style.display = "block"
+            }
+        //console.error(`Error: ${event.message} at ${event.filename}:${event.lineno}:${event.colno}`);
+        // Returning true from the listener also prevents default behavior
+        });
+
+
+    }
+    </script>
+</head>
+<body onload="init()">
+    <h2>Edit JavaScript Function</h2>
+    <pre class="code">
+function myFunction() {
+	console.log(">Hello world!");
+}
+myFunction()
+
+</pre>
+    <pre class="code" data-convert="false">
+function yourFunction() {
+	console.log("Goodbye, cruel world!")
+
+
+
+
+}
+yourFunction(
+</pre>
+
+</body>
+</html>
