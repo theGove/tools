@@ -8,25 +8,18 @@ import webbrowser
 from bs4 import BeautifulSoup
 import yaml
 
-#   Be in the root of the book to publish and run
+from utils import getJsonFile
+
+#   parse the markdown file, convert to html and publish it to the blog
+#    Be in the root of the book to publish and run
 #   python ../tools/publish.py 1 
 #   where 1 refers to 1.md, the chapter to publish
-def getJsonFile(filePath):
-    try:
-        with open(filePath, 'r') as file:
-            return json.load(file)  # 'data' is now a Python dictionary or list
-    except FileNotFoundError:
-        print("Error: The file 'data.json' was not found.")
-        return "failed"
-    except json.JSONDecodeError:
-        print("Error: Failed to decode JSON from the file (invalid JSON format).")
-        return "failed"
 
 
 def publish(file_name,file_contents):
     if file_contents.strip()[:3] == "---":
         # there is a yaml block at top of file
-        # check to see if there are any params here for the pre-process (ones that beging with _$_)
+        # check to see if there are any params here for the pre-process (ones that beginning with _$_)
         args = yaml.safe_load(file_contents.split("---")[1])
         preProcessArgs = {}
         for key, value in args.items():
