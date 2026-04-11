@@ -2,7 +2,6 @@ const pageData={}
 let  variables={}
 
 function searchBook(){
-  console.log("I'm seraching!", )
   fetch(`/feeds/posts/default?alt=json&label=chapter&v=2&orderby=relevance&max-results=100&q=label%3Achapter+${encodeURIComponent(tag("search").value)}&start-index=1&rewriteforssl=true`)
   .then(response => {
     if (!response.ok) {

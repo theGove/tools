@@ -45,6 +45,6 @@ def getPreProcessArgs(file_contents):
             if key[:3] == "_$_":
                 # this is a pre-process param, keep it
                 preProcessArgs[key[3:]] = value
-        print("preProcessArgs",preProcessArgs)
+        
         return preProcessArgs        
     return {}

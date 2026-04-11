@@ -1,3 +1,4 @@
+from fileinput import filename
 import requests
 import sys
 import pprint
@@ -6,23 +7,23 @@ import os
 from utils import processDocument
 from utils import getTitle
 from utils import getJsonFile
+from utils import getPreProcessArgs
 
-#   parse the markdown file, convert to html and publish it to the blog
+#   Publishes an api file to the current book blog
 #    Be in the root of the book to publish and run
-#   python ../tools/publish.py 1 2
-#   where 1 refers to 1.md, the chapter to publish and 2 refers to 2.md, the next chapter to publish.  You can publish as many chapters as you want in one go by listing them all in the command.  Just make sure to list them in order so that the numbering of the chapters is correct on the blog.
+#   python ../tools/publish-api.py system monaco
+#   where system refers to /tools/api/system.js and monaco is the next api to publish, /tools/api/monaco.js.  You can publish as many apis as you want in one go by listing them all in the command.  Just make sure to list them in order so that the numbering of the chapters is correct on the blog.
 
 
 def process(file_name):
-
-    with open(file_name+".md", 'r', encoding='utf-8') as file:
+    if not file_name.endswith(".js"):
+        file_name += ".js"    
+    print("filename", file_name)
+    with open(os.path.join("..","tools","api",file_name), 'r', encoding='utf-8') as file:
         file_contents = file.read()
 
-    html = processDocument(file_contents,  file_name)
-    title = getTitle(html, file_name)
-    blogId, postId = getIdsFromFeed(file_name)
+    blogId, postId = getIdsFromFeed(file_name.removesuffix(".js"))
 
-    
     raw_path = os.path.join(os.path.dirname(__file__), '..', 'tools', 'deploymentId.txt')
     file_path = os.path.abspath(raw_path)
     with open(file_path, 'r') as f:
@@ -30,18 +31,18 @@ def process(file_name):
 
     url = 'https://script.google.com/macros/s/'+deploymentId+'/exec'
     payload = {'mode': 'publish',
-               'title':title,
-               'content':html,
+               'content':file_contents,
                'blogId':blogId,
                'postId':postId
                }
 
     print("Updating")
-    print("    title:",title)
+    print("     file:",file_name)
     print("  Blog ID:",blogId)
     print("  Post ID:",postId)
 
     response = requests.post(url, json = payload).json()
+    
 
     if "error" in response:
         print("============================== Update Failed ==============================")
@@ -82,7 +83,7 @@ def main():
                 process(file_name)            
         print("\n\n\n")
     else:
-        print("must provide the name of a markdown file (without the extension).  This is usually a chapter number")
+        print("must provide the name of a api file (without the extension).  This is usually a chapter number")
 
 if __name__=="__main__":
     main()        
