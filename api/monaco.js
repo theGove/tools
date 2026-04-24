@@ -134,8 +134,13 @@
             window.newConsole.exampleOutput = elem.querySelector(".console")
             const code = codeEditors[elem.id].getValue()
             const s = document.createElement("script")
-            s.replaceChildren("function deltaGammaBettaZeta(){" + code + "}deltaGammaBettaZeta()")
+            const fullCode = "function deltaGammaBetaZeta(){" + code + "\n}deltaGammaBetaZeta()"
+            s.replaceChildren(fullCode)
+            try{
             document.head.appendChild(s)
+            }catch(e){
+                console.log(e)
+            }
         }
 
         function print(...args) {
