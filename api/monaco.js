@@ -55,7 +55,7 @@
 
                     monacoBar.appendChild(copyBtn)
                     monacoBar.appendChild(resetBtn)
-                    monacoBar.appendChild(runBtn)
+                    if (environment !== "none") monacoBar.appendChild(runBtn)
 
                     const con = document.createElement("div")
                     con.className = "console"
