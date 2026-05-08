@@ -3,7 +3,7 @@
             "html": {
                 message:"To run this code, copy and paste it into the Google Apps Script editor: https://script.google.com/",
                 language: {
-                    label: "Google Apps Script",
+                    label: "HTML",
                     syntax: "html",
                 }
             },
@@ -172,6 +172,8 @@
             const con = elem.querySelector(".console")
             con.style.display = "none"
             con.querySelectorAll(".console-line").forEach(line => line.remove())
+            con.querySelectorAll(".html-preview").forEach(f => f.remove())
+
         }
 
         function resetCode(evt) {
@@ -187,6 +189,25 @@
             while (!elem.classList.contains("monaco")) elem = elem.parentElement
             window.newConsole.exampleOutput = elem.querySelector(".console")
             const envKey = elem.dataset.environment
+            if (environments[envKey]?.language?.syntax === "html") {
+                const con = elem.querySelector(".console")
+                con.style.backgroundColor = "#fff"
+              //  con.querySelectorAll(".html-preview").forEach(f => f.remove())
+                const iframe = document.createElement("iframe")
+                iframe.className = "html-preview"
+                iframe.srcdoc = codeEditors[elem.id].getValue()
+                let css="width:100%;border:none;min-height:100px;display:block;"
+                if(con.querySelectorAll(".html-preview").length > 0){                    
+                    css += "border-top:5px solid #ccc;"
+                }
+                iframe.style.cssText = css
+                iframe.onload = () => {
+                    iframe.style.height = iframe.contentDocument.body.scrollHeight + "px"
+                }
+                con.appendChild(iframe)
+                con.style.display = "block"
+                return
+            }
             if (environments[envKey]) {
                 const con = elem.querySelector(".console")
                 const div = document.createElement("div")
