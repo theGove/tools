@@ -21,8 +21,9 @@
                 const pres = document.querySelectorAll("pre.code")
                 for (let x = 0; x < pres.length; x++) {
                     const pre = pres[x]
-                    if (pre.getAttribute("data-convert") === "false") continue
-
+                    const environment = pre.getAttribute("data-environment") || "browser"
+                    console.log("Environment:", environment)
+                     
                     pre.id = "original-code" + x
                     pre.style.display = "none"
 
