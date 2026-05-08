@@ -1,4 +1,55 @@
         const codeEditors = {}
+        const environments = {
+            "html": {
+                message:"To run this code, copy and paste it into the Google Apps Script editor: https://script.google.com/",
+                language: {
+                    label: "Google Apps Script",
+                    syntax: "html",
+                }
+            },
+            "apps-script": {
+                message:"To run this code, copy and paste it into the Google Apps Script editor: https://script.google.com/",
+                language: {
+                    label: "Google Apps Script",
+                    syntax: "javascript",
+                }
+            },
+            "apps-script-sheets": {
+                message:"To run this code, copy and paste it into the Google Apps Script editor that is built into Google Sheets: Extensions > Apps Script",
+                language: {
+                    label: "Google Apps Script",
+                    syntax: "javascript",
+                }
+            },
+            "node-js": {
+                message:"To run this code, copy and paste it into your node js console on your computer",
+                language: {
+                    label: "Node.js",
+                    syntax: "javascript",
+                }
+            },
+            "jade": {
+                message:"To run this code, copy and paste it into the editor of the JADE add-in for Excel",
+                language: {
+                    label: "JADE",
+                    syntax: "javascript",
+                }
+            },
+            "office-script-excel": {
+                message:"To run this code, copy and paste it into the Automate system of Excel",
+                language: {
+                    label: "Office Script (Excel)",
+                    syntax: "javascript",
+                }
+            },
+            "office-script-word": {
+                message:"To run this code, copy and paste it into the Automate system of Word",
+                language: {
+                    label: "Office Script (Word)",
+                    syntax: "javascript",
+                }
+            },
+        }
 
         function initMonaco() {
             if (typeof require !== "function") {
@@ -23,6 +74,7 @@
                     const pre = pres[x]
                     const environment = pre.getAttribute("data-environment") || "browser"
                     console.log("Environment:", environment)
+                    if (environment === "message") continue
                      
                     pre.id = "original-code" + x
                     pre.style.display = "none"
@@ -30,6 +82,7 @@
                     const container = document.createElement("div")
                     container.className = "monaco"
                     container.id = "code" + x
+                    container.dataset.environment = environment
 
                     const code = pre.innerText.trim()
 
@@ -45,7 +98,7 @@
 
                     const label = document.createElement("span")
                     label.className = "monaco-bar-label"
-                    label.textContent = "javascript"
+                    label.textContent = environments[environment]?.language?.label ||   "javascript"
                     monacoBar.appendChild(label)
 
                     const copyBtn = addTool("content_copy", copyCode, "Copy code")
@@ -75,7 +128,7 @@
 
                     codeEditors["code" + x] = monaco.editor.create(editor, {
                         value: code,
-                        language: 'javascript',
+                        language: environments[environment]?.language?.syntax ||   "javascript",
                         theme: 'vs-dark',
                         lineHeight: 22,
                         fontSize: 14,
@@ -133,6 +186,16 @@
             let elem = evt.target
             while (!elem.classList.contains("monaco")) elem = elem.parentElement
             window.newConsole.exampleOutput = elem.querySelector(".console")
+            const envKey = elem.dataset.environment
+            if (environments[envKey]) {
+                const con = elem.querySelector(".console")
+                const div = document.createElement("div")
+                div.className = "console-line"
+                div.appendChild(document.createTextNode(environments[envKey].message))
+                con.appendChild(div)
+                con.style.display = "block"
+                return
+            }
             const code = codeEditors[elem.id].getValue()
             const s = document.createElement("script")
             const fullCode = "function deltaGammaBetaZeta(){" + code + "\n}deltaGammaBetaZeta()"
