@@ -89,9 +89,9 @@
                     const editorHolder = document.createElement("div")
                     editorHolder.className = "editor-holder"
 
-                    const editor = document.createElement("div")
-                    editor.className = "editor"
-                    editorHolder.appendChild(editor)
+                    const editorDiv = document.createElement("div")
+                    editorDiv.className = "editor"
+                    editorHolder.appendChild(editorDiv)
 
                     const monacoBar = document.createElement("div")
                     monacoBar.className = "monaco-bar"
@@ -126,7 +126,7 @@
                     container.appendChild(con)
                     pre.after(container)
 
-                    codeEditors["code" + x] = monaco.editor.create(editor, {
+                    codeEditors["code" + x] = monaco.editor.create(editorDiv, {
                         value: code,
                         language: environments[environment]?.language?.syntax ||   "javascript",
                         theme: 'vs-dark',
@@ -140,13 +140,28 @@
                         overviewRulerLanes: 0,
                         fontFamily: "'Cascadia Code', 'Fira Code', Consolas, 'Courier New', monospace",
                         fontLigatures: true,
+                        automaticLayout: true,
                     });
-
-                    let lines = codeEditors["code" + x].getModel().getLineCount() + 2
+                    const editor = codeEditors["code" + x]  
+                    let lines = editor.getModel().getLineCount() + 2
                     const contentHeight = lines * 22
-                    const editorElement = codeEditors["code" + x].getDomNode()
+                    const editorElement = editor.getDomNode()
                     editorElement.style.height = `${contentHeight}px`
-                    codeEditors["code" + x].layout({ width: editorElement.clientWidth, height: contentHeight })
+                    editor.layout({ width: editorElement.clientWidth, height: contentHeight })
+                    editor.onDidChangeModelContent(() => {
+                        const margin = tag("code" + x).offsetHeight - parseInt(editorElement.style.height.slice(0, -2)) +20
+                        const contentHeight = editor.getContentHeight(); // Get height of actual code
+                        if(window.innerHeight > contentHeight + margin){
+                            editorElement.style.height = `${contentHeight}px`;
+                            editor.layout({ height: contentHeight, width: editorElement.clientWidth });
+                            // scroll the bottom of the editor into view if the content is shorter than the window height
+                            const rect = tag("code" + x).getBoundingClientRect();
+                            if(rect.bottom > window.innerHeight){
+                              tag("code" + x).scrollIntoView({behavior:"smooth", block:"end"})
+                            }
+                        }
+                        console.log(window.innerHeight, editorElement.getBoundingClientRect().bottom)
+                    });
                 }
             });
         }
