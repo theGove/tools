@@ -630,3 +630,32 @@ function playAudio(td){
     }
 
 
+function makePrompt(evt,props){
+  if(evt){
+     console.log("event:", evt, props)
+    let elem = evt.target
+    const html=[]
+    while(elem.tagName!=="H" + props.level){
+      elem = elem.previousElementSibling
+      if(elem.tagName==="DIV" && elem.className==="monaco"){
+        continue
+      }
+      html.unshift(elem.outerHTML)
+    }
+    console.log("fount it:", elem.tagName) 
+    console.log(html)
+    const turndownService = new TurndownService();
+    const prompt = ["I'm learning about javascript.  Please help me understand it by giving me three options: Walk me through the main points, Give me different examples covering the same content, or quizzing me on the main points.  Here's the text of the section:"]
+    prompt.push(turndownService.turndown(html.join("")))
+
+    prompt.push("Here's the table of content from the book so you can know what i've already learned and what else is coming up")
+    prompt.push(tag("toc").innerText.split("\n\n\n").join("\n").split("\n\n").join("\n"))
+
+
+    console.log()
+    navigator.clipboard.writeText(prompt.join("\n\n"))
+      .then(() => console.log("Copied!"))
+      .catch(err => console.error("Failed:", err));
+  }
+
+}
