@@ -1,0 +1,8 @@
+Installed live Server in vs code
+install pandoc - https://pandoc.org/installing.html
+pip install pypandoc
+pip install pyyaml
+pip install beautifulsoup4
+pip install requests
+make file deploymentID.txt
+get deployment ID
