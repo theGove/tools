@@ -314,7 +314,7 @@ function showSection(section, recordHash=true){
             //console.log('tag("page-data").dataset.bookend',tag("page-data").dataset.bookend)
         }
         if(pageData.bookend==="true"){
-            message("You have reached the end of this book.  Thank you for using Availabooks.","Book Over",[], 8)
+            message({text:"You have reached the end of this book.  Thank you for using Availabooks.", title:"Book Over", buttons:[], seconds:8})
         }else{
             const components = window.location.pathname.split('/')
             nextChapter = parseInt(components[components.length - 1].split('.')[0]) + 1
@@ -480,62 +480,140 @@ function showHighlight(){
     document.getElementsByTagName("p")[0].replaceChildren(document.getElementsByTagName("p")[0].innerHTML)
 
 }
-function closeMessage(evt){
-    if(evt){
+
+//==========how to use the messaging system===========
+// // Informational, auto-closes after 5 seconds
+// message({text:"Saved successfully.", title:"Saved", buttons:[], seconds:5})
+
+// // Warning with Yes/No buttons
+// message({text:"Overwrite existing data?", title:"Confirm", type:"warning",
+//     buttons:[{text:"Yes", fn:doOverwrite}, {text:"No", fn:closeMessage}]})
+
+// // Critical error, modal (blocks the page until dismissed)
+// message({text:"Database connection failed.", title:"Critical Error", type:"error", modal:true,
+//     buttons:[{text:"OK", fn:closeMessage}]})
+
+// // Custom buttons, auto-dismiss after 10s, non-blocking
+// message({text:"New version available.", title:"Update", seconds:10,
+//     buttons:[{text:"Update Now", fn:startUpdate}, {text:"Later", fn:closeMessage}]})
+
+
+
+
+
+function closeMessage(evt) {
+    let dialog
+    if (evt && evt.target) {
         let elem = evt.target
-        while(elem.className !== "msg-dialog"){
-            elem=elem.parentNode
-        }
-        elem.remove()
+        while (elem && !elem.classList.contains("msg-dialog")) elem = elem.parentNode
+        dialog = elem
+    }
+    if (dialog) {
+        if (dialog._msgOverlay) dialog._msgOverlay.remove()
+        dialog.remove()
     }
 }
 
-function message(messageHtml="An error occurred.", titleText="System Message", callbacks=[{text:"OK",fn:closeMessage}], secondsUntilClose){
-    // Shows a message in the message galley.  
-    const dialog = document.createElement("div");
-    dialog.className="msg-dialog"
-    const titleBar = document.createElement("div");
-    titleBar.className="msg-title"
-    menuButton=document.createElement("div")
-    menuButton.className = "msg-close"
-    const close=document.createElement("span")
-    close.className = "material-symbols-outlined"
-    close.textContent="close"
-    close.style.fontSize="calc(15px  * var(--font-zoom))"
-    menuButton.appendChild(close)
-    menuButton.addEventListener("click",closeMessage)
-    dialog.appendChild(menuButton)
+// message({text, title, buttons, seconds, type, modal})
+//   text    : message HTML/text  (default: "An error occurred.")
+//   title   : title bar text     (default: "System Message")
+//   buttons : [{text, fn}, ...]  — e.g. [{text:"Yes",fn:yesFn},{text:"No",fn:closeMessage}]
+//             common labels: "OK", "Cancel", "Yes", "No"  (default: [{text:"OK",fn:closeMessage}])
+//   seconds : auto-close delay in seconds (optional)
+//   type    : "info" (default) | "warning" | "error"
+//   modal   : true = block page interaction until dismissed; false (default) = non-blocking
+function message({text: messageHtml = "An error occurred.", title: titleText = "System Message", buttons: callbacks = [{text:"OK", fn:closeMessage}], seconds: secondsUntilClose, type = "info", modal = false} = {}) {
+
+    // ensure gallery container exists
+    let galley = tag("msg-galley")
+    if (!galley) {
+        galley = document.createElement("div")
+        galley.id = "msg-galley"
+        galley.style.cssText = "position:fixed;top:16px;left:50%;transform:translateX(-50%);z-index:9999;display:flex;flex-direction:column;align-items:center;gap:8px;min-width:300px;max-width:min(500px,90vw);"
+        document.body.appendChild(galley)
+    }
+
+    // inject styles once
+    if (!tag("msg-styles")) {
+        const s = document.createElement("style")
+        s.id = "msg-styles"
+        s.textContent = `
+            #msg-galley { pointer-events:none; }
+            .msg-dialog { pointer-events:auto; width:100%; background:#fff;
+                          box-shadow:0 4px 24px rgba(0,0,0,0.22); position:relative;
+                          overflow:hidden; box-sizing:border-box; }
+            .msg-title   { padding:10px 36px 8px 14px; font-weight:600; font-size:14px; color:#fff; }
+            .msg-info    .msg-title { background:#2196f3; }
+            .msg-warning .msg-title { background:#ff9800; }
+            .msg-error   .msg-title { background:#f44336; }
+            .msg-message { padding:10px 14px; font-size:13px; color:#333; border-radius:0; }
+            .msg-button-bar { display:flex; justify-content:flex-end; gap:8px; padding:8px 14px 12px; }
+            .msg-button-bar button { padding:4px 14px; border-radius:4px; border:1px solid #ccc;
+                                     cursor:pointer; font-size:13px; background:#f0f0f0; }
+            .msg-button-bar button:hover { background:#e0e0e0; }
+            .msg-close { position:absolute; top:8px; right:8px; cursor:pointer; color:#000;
+                         line-height:1; display:flex; align-items:center;
+                         background:#d0d0d0; border:1px solid #000; border-radius:3px; padding:1px 2px; }
+            .msg-close:hover { background:#bbb; }
+            .msg-overlay { position:fixed; inset:0; background:rgba(0,0,0,0.45); z-index:9998; }
+        `
+        document.head.appendChild(s)
+    }
+
+    // modal overlay blocks the rest of the page
+    let overlay = null
+    if (modal) {
+        overlay = document.createElement("div")
+        overlay.className = "msg-overlay"
+        document.body.appendChild(overlay)
+    }
+
+    const dialog = document.createElement("div")
+    dialog.className = "msg-dialog msg-" + type
+    dialog._msgOverlay = overlay
+
+    // X dismiss button
+    const closeBtn = document.createElement("div")
+    closeBtn.className = "msg-close"
+    const closeIcon = document.createElement("span")
+    closeIcon.className = "material-symbols-outlined"
+    closeIcon.textContent = "close"
+    closeIcon.style.fontSize = "calc(15px * var(--font-zoom, 1))"
+    closeBtn.appendChild(closeIcon)
+    closeBtn.addEventListener("click", closeMessage)
+    dialog.appendChild(closeBtn)
+
+    const titleBar = document.createElement("div")
+    titleBar.className = "msg-title"
     titleBar.textContent = titleText
-
-
-    const messagePane = document.createElement("div");
-    messagePane.className="msg-message"
-    messagePane.innerHTML = messageHtml
-
-
     dialog.appendChild(titleBar)
+
+    const messagePane = document.createElement("div")
+    messagePane.className = "msg-message"
+    messagePane.innerHTML = messageHtml
     dialog.appendChild(messagePane)
 
-    if(callbacks.length>0){
-        const buttonBar = document.createElement("div");
-        buttonBar.className="msg-button-bar"
-        for(const callback of callbacks){
-            const button = document.createElement("button");
-            button.textContent = callback.text
-            button.addEventListener("click",callback.fn)
+    if (callbacks.length > 0) {
+        const buttonBar = document.createElement("div")
+        buttonBar.className = "msg-button-bar"
+        for (const cb of callbacks) {
+            const button = document.createElement("button")
+            button.textContent = cb.text
+            button.addEventListener("click", cb.fn)
             buttonBar.appendChild(button)
         }
         dialog.appendChild(buttonBar)
     }
 
-    if(secondsUntilClose){
-        const timeoutId = setTimeout(function(){ closeMessage({target:dialog}); }, secondsUntilClose*1000);
-        dialog.addEventListener("mousemove",function(){clearTimeout(timeoutId)})
+    galley.appendChild(dialog)
+
+    if (secondsUntilClose) {
+        const timeoutId = setTimeout(() => {
+            if (overlay) overlay.remove()
+            dialog.remove()
+        }, secondsUntilClose * 1000)
+        dialog.addEventListener("mousemove", () => clearTimeout(timeoutId))
     }
-
-    tag("msg-galley").appendChild(dialog);  
-
-
 }
 
 
