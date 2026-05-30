@@ -363,9 +363,8 @@
             const funcSelect = elem.querySelector(".monaco-func-select")
             const selectedFunc = funcSelect ? funcSelect.value : ""
             const s = document.createElement("script")
-            const fullCode = selectedFunc
-                ? code + "\n" + selectedFunc + "()"
-                : "function deltaGammaBetaZeta(){" + code + "\n}deltaGammaBetaZeta()"
+            const callLine = selectedFunc ? "\n" + selectedFunc + "()" : ""
+            const fullCode = "function deltaGammaBetaZeta(){" + code + callLine + "\n}deltaGammaBetaZeta()"
 
             s.replaceChildren(fullCode)
             try{
