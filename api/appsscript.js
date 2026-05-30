@@ -113,6 +113,7 @@ class r{
                     if(value.startsWith("=")){
                         updateCellValue(cell)
                     }
+                    
                     cell.style.textAlign="left"
                 }else{
                     cell.style.textAlign="right"
@@ -260,7 +261,7 @@ for (let row = 0; row < data.length; row++) {
     }
     
     cell.addEventListener('blur', (e) => {
-            updateCellValue(e.target)
+            recordCellValue(e.target)
     })
 
     tr.appendChild(cell);
@@ -421,10 +422,19 @@ for (let row = 0; row < data.length; row++) {
 
   return table;
 }
+ function recordCellValue(cell){
+    const newValue = cell.innerText;
 
+    if (cell.dataset.formula && !newValue.startsWith("=")) {
+        // User edited a formula cell and replaced it with a non-formula value
+        delete cell.dataset.formula;
+    }
+
+    updateCellValue(cell)
+ }
  function updateCellValue(cell, skipRefresh = false){
     let updatedValue = cell.innerText;
-
+    console.log("updating cell", cell.id, "with value", updatedValue    )
     // When called programmatically (e.g. refreshFormulas), innerText may be empty
     // while the formula is already stored in data-formula
     if (!updatedValue.startsWith("=") && cell.dataset.formula)
@@ -442,6 +452,7 @@ for (let row = 0; row < data.length; row++) {
 
     }else{
         cell.removeAttribute('data-formula');
+        console.log("just removed formula for", cell.id)
     }
     if(isNaN(updatedValue)){
         cell.style.textAlign="left"
