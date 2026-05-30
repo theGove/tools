@@ -434,7 +434,6 @@ for (let row = 0; row < data.length; row++) {
  }
  function updateCellValue(cell, skipRefresh = false){
     let updatedValue = cell.innerText;
-    console.log("updating cell", cell.id, "with value", updatedValue    )
     // When called programmatically (e.g. refreshFormulas), innerText may be empty
     // while the formula is already stored in data-formula
     if (!updatedValue.startsWith("=") && cell.dataset.formula)

@@ -260,10 +260,11 @@
 
         function populateFuncSelect(select, code) {
             const prev = select.value
+            const initialized = select.dataset.initialized === "true"
             select.innerHTML = ""
             const allOpt = document.createElement("option")
             allOpt.value = ""
-            allOpt.textContent = "run all"
+            allOpt.textContent = "Run as written"
             select.appendChild(allOpt)
             const funcs = extractFunctions(code)
             for (const fn of funcs) {
@@ -272,8 +273,13 @@
                 opt.textContent = fn + "()"
                 select.appendChild(opt)
             }
-            if (prev && [...select.options].some(o => o.value === prev)) select.value = prev
-            else if (funcs.length > 0) select.value = funcs[0]
+            if (prev && [...select.options].some(o => o.value === prev)) {
+                select.value = prev
+            } else if (funcs.length > 0 && (prev || !initialized)) {
+                select.value = funcs[0]
+                select.dataset.initialized = "true"
+            }
+            select.style.display = funcs.length > 0 ? "" : "none"
         }
 
         function toggleWrap(evt) {
