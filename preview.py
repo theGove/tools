@@ -35,10 +35,14 @@ def process(file_name):
     #  inject the body html
     contents = contents.replace("<!--postEnd-->","<!--postBegin-->").split("<!--postBegin-->")
     contents = contents[0] + "<!--postBegin-->" + html + "<!--postEnd-->" + contents[2]
-    # inject the title
-    titleArray = contents.split("<span id='title'>")    
-    titleArray[1] = titleArray[1].replace("</span>",chr(30),1).split(chr(30))[1]
-    contents = titleArray[0] + "<span id='title'>" + title + "</span>" + titleArray[1]
+    # inject the title (match id='title' regardless of other span attributes)
+    title_marker = "id='title'>"
+    title_parts = contents.split(title_marker, 1)
+    if len(title_parts) < 2:
+        print("Error: Could not find title span in HTML template.")
+        return "failed"
+    after_title = title_parts[1].replace("</span>", chr(30), 1).split(chr(30))[1]
+    contents = title_parts[0] + title_marker + title + "</span>" + after_title
 
     with open(filePath, 'w', encoding='utf-8') as f:
         f.write(contents)
