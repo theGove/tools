@@ -3,6 +3,7 @@ import sys
 import pprint
 import os
 
+from utils import chapter_base_name
 from utils import processDocument
 from utils import getTitle
 from utils import getJsonFile
@@ -74,15 +75,58 @@ def getIdsFromFeed(file_name):
             return blogId, postId
 
 
+def chapters_from_argv(argv):
+    """Collect chapter ids from CLI args, in order, skipping missing .md files."""
+    chapters = []
+    for arg in argv[1:]:
+        base = chapter_base_name(arg)
+        md_path = base + ".md"
+        if not os.path.isfile(md_path):
+            print(f"Skipping {arg}: {md_path} not found")
+            continue
+        chapters.append(base)
+    return chapters
+
+
+def is_shell_glob_star(argv):
+    """True when the shell expanded a glob (e.g. *) — args include .md filenames."""
+    return any(os.path.basename(arg).lower().endswith(".md") for arg in argv[1:])
+
+
+def confirm_star_bulk_publish(chapters):
+    """Ask the user to confirm publishing many chapters at once (glob * workflow)."""
+    n = len(chapters)
+    chapter_list = ", ".join(chapters)
+    print()
+    print("⚠️  Bulk publish warning")
+    print()
+    print(f"You're about to publish {n} chapters in one run (shell glob, e.g. publish.py *).")
+    print("Each chapter calls the blog publish API — only do this if you really mean to")
+    print("update the whole book. That endpoint is not meant for heavy or repeated use.")
+    print()
+    print(f"Chapters: {chapter_list}")
+    print()
+    answer = input("Type 'yes' to continue: ").strip().lower()
+    if answer != "yes":
+        print("Aborted — no chapters published.")
+        sys.exit(0)
+    print()
+
+
 def main():
     if len(sys.argv) > 1:
-        for i, file_name in enumerate(sys.argv):
-            if i > 0:
-                print("\n\n\n")
-                process(file_name)            
+        chapters = chapters_from_argv(sys.argv)
+        if not chapters:
+            print("No chapters to publish.")
+            return
+        if is_shell_glob_star(sys.argv) and len(chapters) > 1:
+            confirm_star_bulk_publish(chapters)
+        for base in chapters:
+            print("\n\n\n")
+            process(base)
         print("\n\n\n")
     else:
-        print("must provide the name of a markdown file (without the extension).  This is usually a chapter number")
+        print("must provide chapter name(s), e.g. 1 or 1.md (shell glob * is fine)")
 
 if __name__=="__main__":
     main()        

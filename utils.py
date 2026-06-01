@@ -1,8 +1,17 @@
 import json
+import os
 import pypandoc
 import json
 import yaml
 from bs4 import BeautifulSoup
+
+
+def chapter_base_name(arg):
+    """Return chapter id (e.g. '1') from '1', '1.md', or a path ending in '.md'."""
+    name = os.path.basename(arg)
+    if name.lower().endswith(".md"):
+        return name[:-3]
+    return name
 
 
 def getTitle(html, file_name):

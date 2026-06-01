@@ -1,0 +1,12 @@
+# Python dependencies for availabooks tools (see Install notes.txt)
+#
+# System dependency (install separately, not via pip):
+#   pandoc — https://pandoc.org/installing.html
+#
+# VS Code extension (optional, for local preview):
+#   Live Server
+
+pypandoc
+PyYAML
+beautifulsoup4
+requests

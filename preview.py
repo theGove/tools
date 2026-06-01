@@ -1,6 +1,7 @@
 import sys
 import os
 
+from utils import chapter_base_name
 from utils import processDocument
 from utils import getTitle
 
@@ -47,11 +48,16 @@ def main():
     if len(sys.argv) > 1:
         for i, file_name in enumerate(sys.argv):
             if i > 0:
+                base = chapter_base_name(file_name)
+                md_path = base + ".md"
+                if not os.path.isfile(md_path):
+                    print(f"Skipping {file_name}: {md_path} not found")
+                    continue
                 print("\n\n\n")
-                process(file_name)            
+                process(base)
         print("\n\n\n")
     else:
-        print("must provide the name of a markdown file (without the extension).  This is usually a chapter number")
+        print("must provide chapter name(s), e.g. 1 or 1.md (shell glob * is fine)")
 
 if __name__=="__main__":
     main()        
