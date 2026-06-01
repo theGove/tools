@@ -73,6 +73,10 @@ cd ppwjs
 python ../tools/publish.py 1 2 3
 ```
 
+With no arguments, `publish.py` pulls the Blogger `chapter` feed, compares each local `N.md` to the published HTML (normalizing line endings and entities), and publishes only chapters whose content changed.
+
+When you pass chapter numbers, the same comparison runs first: unchanged chapters are skipped even if you listed them.
+
 List chapter numbers in order so chapter numbering stays correct on the blog.
 
 **Download from the blog** — pulls down the current live content to use as your local working copy:
