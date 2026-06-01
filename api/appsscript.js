@@ -451,7 +451,7 @@ for (let row = 0; row < data.length; row++) {
 
     }else{
         cell.removeAttribute('data-formula');
-        console.log("just removed formula for", cell.id)
+        //console.log("just removed formula for", cell.id)
     }
     if(isNaN(updatedValue)){
         cell.style.textAlign="left"
