@@ -13,6 +13,7 @@ from utils import list_numeric_chapter_bases
 from utils import local_chapter_html
 from utils import processDocument
 from utils import remote_html_by_chapter
+from utils import terminal_bold
 
 #   parse the markdown file, convert to html and publish it to the blog
 #    Be in the root of the book to publish and run
@@ -154,12 +155,15 @@ def confirm_publish(chapters, bulk_glob=False):
     n = len(chapters)
     chapter_list = ", ".join(chapters)
     print()
-    if bulk_glob:
-        print("Bulk publish warning")
+    if n > 1:
+        print(terminal_bold("Bulk publish warning"))
         print()
-        print(
-            f"You're about to publish {n} chapters in one run (shell glob, e.g. publish.py *)."
-        )
+        if bulk_glob:
+            print(
+                f"You're about to publish {n} chapters in one run (shell glob, e.g. publish.py *)."
+            )
+        else:
+            print(f"You're about to publish {n} chapters in one run.")
         print(
             "Each chapter calls the blog publish API — only do this if you really mean to"
         )

@@ -2,11 +2,46 @@ import html
 import json
 import os
 import re
+import sys
 
 import pypandoc
 import requests
 import yaml
 from bs4 import BeautifulSoup
+
+_windows_ansi_enabled = False
+
+
+def _enable_windows_ansi():
+    """Enable ANSI escape sequences on Windows consoles (Windows 10+)."""
+    global _windows_ansi_enabled
+    if _windows_ansi_enabled or os.name != "nt":
+        return
+    try:
+        import ctypes
+
+        kernel32 = ctypes.windll.kernel32
+        handle = kernel32.GetStdHandle(-11)
+        mode = ctypes.c_ulong()
+        if kernel32.GetConsoleMode(handle, ctypes.byref(mode)):
+            enable_vt = 0x0004
+            if (mode.value & enable_vt) == 0:
+                kernel32.SetConsoleMode(handle, mode.value | enable_vt)
+        _windows_ansi_enabled = True
+    except (AttributeError, OSError):
+        pass
+
+
+def terminal_bold(text):
+    """
+    Return text wrapped for bold terminal output (Unix and Windows).
+    @param {string} text - Plain text to emphasize.
+    """
+    if not sys.stdout.isatty():
+        return text
+    if os.name == "nt":
+        _enable_windows_ansi()
+    return f"\033[1m{text}\033[0m"
 
 
 def chapter_base_name(arg):
