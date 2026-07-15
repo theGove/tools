@@ -79,6 +79,30 @@ When you pass chapter numbers, the same comparison runs first: unchanged chapter
 
 List chapter numbers in order so chapter numbering stays correct on the blog.
 
+**Publish chapters to Availabooks Pro**:
+
+Add a `pro` block to the book's `config.json`:
+
+```json
+{
+  "blogUrl": "book1007.blogspot.com",
+  "pro": {
+    "contentDir": "../pro/content",
+    "slug": "ppwjs",
+    "title": "Personal Productivity with JavaScript"
+  }
+}
+```
+
+Then run the Pro publisher from the book folder:
+
+```bash
+cd ppwjs
+python ../tools/publish_pro.py 1 2 3
+```
+
+With no chapter arguments, `publish_pro.py` publishes every numeric Markdown chapter. It writes Pandoc-generated HTML fragments and a manifest into `pro/content/{slug}/`, then runs the Hono SSG build in `pro/`. This does not publish or change Blogger content. Deploy the generated site separately with `cd ../pro && npm run deploy`.
+
 **Download from the blog** — pulls down the current live content to use as your local working copy:
 
 ```bash
