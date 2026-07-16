@@ -101,7 +101,7 @@ cd ppwjs
 python ../tools/publish_pro.py 1 2 3
 ```
 
-With no chapter arguments, `publish_pro.py` publishes every numeric Markdown chapter. It writes Pandoc-generated HTML fragments and a manifest into `pro/content/{slug}/`, then runs the Hono SSG build in `pro/`. This does not publish or change Blogger content. Deploy the generated site separately with `cd ../pro && npm run deploy`.
+With no chapter arguments, `publish_pro.py` publishes every numeric Markdown chapter. It writes Pandoc-generated HTML fragments and a manifest into `pro/content/{slug}/`, copies any modules requested by `_$_import` (such as `monaco`) from `tools/api/` into Pro's static assets, then runs the Hono SSG build in `pro/`. This does not publish or change Blogger content. Deploy the generated site separately with `cd ../pro && npm run deploy`.
 
 **Download from the blog** — pulls down the current live content to use as your local working copy:
 

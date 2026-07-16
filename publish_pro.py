@@ -4,6 +4,8 @@ import shutil
 import subprocess
 import sys
 
+from bs4 import BeautifulSoup
+
 from utils import chapter_base_name
 from utils import getJsonFile
 from utils import getTitle
@@ -108,11 +110,27 @@ def publish_chapter(book_directory, manifest, chapter_id):
     chapters_by_id[chapter_id] = chapter_summary
     manifest["chapters"] = list(chapters_by_id.values())
     print(f"Published chapter {chapter_id}: {title}")
+    return module_names_from_html(html)
 
 
-def build_pro_site(content_directory):
+def module_names_from_html(html):
     """
-    Run the Pro SSG build after content has been written.
+    Find safe module names requested by generated chapter markers.
+    @param {string} html - Generated chapter body HTML.
+    """
+    document = BeautifulSoup(html, "html.parser")
+    module_names = set()
+    for marker in document.select("div.module"):
+        module_name = marker.get_text(strip=True)
+        if not module_name.replace("-", "").replace("_", "").isalnum():
+            raise ValueError(f"Invalid Pro module name: {module_name}")
+        module_names.add(module_name)
+    return module_names
+
+
+def pro_project_directory(content_directory):
+    """
+    Resolve and validate the Pro project beside its content directory.
     @param {string} content_directory - Absolute path to Pro's content directory.
     """
     project_directory = os.path.dirname(content_directory)
@@ -120,7 +138,37 @@ def build_pro_site(content_directory):
         raise ValueError(
             f"Pro package.json not found beside content directory: {content_directory}"
         )
+    return project_directory
 
+
+def copy_module_scripts(module_names, project_directory):
+    """
+    Copy requested Availabooks browser modules into Pro's static assets.
+    @param {set<string>} module_names - Module names found in published chapters.
+    @param {string} project_directory - Absolute Pro project directory.
+    """
+    source_directory = os.path.join(os.path.dirname(__file__), "api")
+    destination_directory = os.path.join(
+        project_directory, "public", "modules"
+    )
+    os.makedirs(destination_directory, exist_ok=True)
+
+    for module_name in sorted(module_names):
+        source_path = os.path.join(source_directory, f"{module_name}.js")
+        if not os.path.isfile(source_path):
+            raise ValueError(f"Availabooks module not found: {source_path}")
+        shutil.copy2(
+            source_path,
+            os.path.join(destination_directory, f"{module_name}.js"),
+        )
+        print(f"Included module: {module_name}")
+
+
+def build_pro_site(project_directory):
+    """
+    Run the Pro SSG build after content has been written.
+    @param {string} project_directory - Absolute Pro project directory.
+    """
     npm_command = shutil.which("npm")
     if npm_command is None:
         raise RuntimeError("npm is required to build Availabooks Pro")
@@ -148,10 +196,15 @@ def main():
 
         manifest_path = os.path.join(book_directory, "manifest.json")
         manifest = load_manifest(manifest_path, pro_config["title"])
+        module_names = set()
         for chapter_id in chapters:
-            publish_chapter(book_directory, manifest, chapter_id)
+            module_names.update(
+                publish_chapter(book_directory, manifest, chapter_id)
+            )
         write_manifest(manifest_path, manifest)
-        build_pro_site(content_directory)
+        project_directory = pro_project_directory(content_directory)
+        copy_module_scripts(module_names, project_directory)
+        build_pro_site(project_directory)
         print(f"Pro site built with {len(chapters)} published chapter(s).")
     except (
         json.JSONDecodeError,
