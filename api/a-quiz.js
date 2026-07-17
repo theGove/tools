@@ -3,12 +3,7 @@
  * Source: webcomponents/src/components/a-quiz/
  * Rebuild: cd webcomponents && npm run build
  */
-var T=n=>{throw TypeError(n)};var S=(n,s,c)=>s.has(n)||T("Cannot "+c);var g=(n,s,c)=>(S(n,s,"read from private field"),c?c.call(n):s.get(n)),q=(n,s,c)=>s.has(n)?T("Cannot add the same private member more than once"):s instanceof WeakSet?s.add(n):s.set(n,c),z=(n,s,c,x)=>(S(n,s,"write to private field"),x?x.call(n,c):s.set(n,c),c),m=(n,s,c)=>(S(n,s,"access private method"),c);(function(){"use strict";var b,y,f,l,C,w,L,v;const n=/^(\d+)\.\s+(.+)$/,s=/^(\*)?([A-Za-z])\)\s+(.+)$/;function c(u){const i=[];let e=null;for(const t of u.split(/\r?\n/)){const o=t.trim();if(!o)continue;const a=n.exec(o);if(a){e={prompt:a[2].trim(),choices:[]},i.push(e);continue}const d=s.exec(o);if(d){if(!e)throw new Error(`Choice "${o}" appeared before any question.`);e.choices.push({correct:!!d[1],key:d[2].toLowerCase(),text:d[3].trim()});continue}throw new Error(`Unrecognized quiz line: "${o}"`)}for(const[t,o]of i.entries()){if(o.choices.length===0)throw new Error(`Question ${t+1} has no choices.`);if(!o.choices.some(a=>a.correct))throw new Error(`Question ${t+1} has no correct choice marked with *.`)}return i}function x(u){const i=u.slice();for(let e=i.length-1;e>0;e-=1){const t=Math.floor(Math.random()*(e+1)),o=i[e];i[e]=i[t],i[t]=o}return i}const k="a-quiz-host-styles",H=`
-a-quiz > script[type="text/plain"],
-a-quiz > script[type="text/quiz"] {
-  display: none;
-}
-`,M=`
+(function(p){"use strict";const S=/^(\d+)\.\s+(.+)$/,x=/^(\*)?([A-Za-z])\)\s+(.+)$/,$=/^>\s+(.+)$/;function E(t){const e=[];let o=null;for(const n of t.split(/\r?\n/)){const r=n.trim();if(!r)continue;const c=S.exec(r);if(c){o={prompt:c[2].trim(),choices:[]},e.push(o);continue}const i=x.exec(r);if(i){if(!o)throw new Error(`Choice "${r}" appeared before any question.`);o.choices.push({correct:!!i[1],key:i[2].toLowerCase(),text:i[3].trim()});continue}const s=$.exec(r);if(s){if(!o)throw new Error(`Correct message "${r}" appeared before any question.`);if(o.choices.length===0)throw new Error(`Correct message for "${o.prompt}" appeared before any choices.`);const a=s[1].trim();o.correctMessage=o.correctMessage?`${o.correctMessage} ${a}`:a;continue}throw new Error(`Unrecognized quiz line: "${r}"`)}for(const[n,r]of e.entries()){if(r.choices.length===0)throw new Error(`Question ${n+1} has no choices.`);if(!r.choices.some(c=>c.correct))throw new Error(`Question ${n+1} has no correct choice marked with *.`)}return e}function A(t){const e=t.slice();for(let o=e.length-1;o>0;o-=1){const n=Math.floor(Math.random()*(o+1)),r=e[o];e[o]=e[n],e[n]=r}return e}const g="data-a-quiz-mounted",z=`
 :host {
   display: block;
   font: 1rem/1.5 system-ui, sans-serif;
@@ -17,7 +12,13 @@ a-quiz > script[type="text/quiz"] {
 
 .quiz {
   display: grid;
-  gap: 1.25rem;
+  gap: 1rem;
+}
+
+.progress {
+  margin: 0;
+  font-size: 0.9rem;
+  color: #555;
 }
 
 .question {
@@ -49,6 +50,47 @@ a-quiz > script[type="text/quiz"] {
   margin-top: 0.25rem;
 }
 
+.choice.is-correct-choice label {
+  color: #2e7d32;
+  font-weight: 600;
+}
+
+.choice.is-wrong-choice label {
+  color: #c62828;
+}
+
+.feedback {
+  display: grid;
+  gap: 0.35rem;
+  margin: 0;
+  padding: 0.65rem 0.75rem;
+  border-radius: 4px;
+  border: 1px solid transparent;
+}
+
+.feedback[hidden] {
+  display: none;
+}
+
+.feedback.is-correct {
+  background: #e8f5e9;
+  border-color: #a5d6a7;
+}
+
+.feedback.is-incorrect {
+  background: #ffebee;
+  border-color: #ef9a9a;
+}
+
+.feedback-status {
+  margin: 0;
+  font-weight: 600;
+}
+
+.correct-message {
+  margin: 0;
+}
+
 .actions {
   display: flex;
   flex-wrap: wrap;
@@ -65,8 +107,13 @@ button {
   background: #f5f5f5;
 }
 
-button:hover {
+button:hover:not(:disabled) {
   background: #ebebeb;
+}
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
 }
 
 .result {
@@ -74,36 +121,41 @@ button:hover {
   font-weight: 600;
 }
 
-.question.is-correct {
-  outline: 2px solid #2e7d32;
-  outline-offset: 4px;
-  border-radius: 4px;
-  padding: 0.5rem;
-}
-
-.question.is-incorrect {
-  outline: 2px solid #c62828;
-  outline-offset: 4px;
-  border-radius: 4px;
-  padding: 0.5rem;
+.result[hidden] {
+  display: none;
 }
 
 .error {
   margin: 0;
   color: #c62828;
 }
-`;function I(){if(typeof document>"u"||document.getElementById(k))return;const u=document.createElement("style");u.id=k,u.textContent=H,document.head.appendChild(u)}function E(u){return u.replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;").replaceAll('"',"&quot;")}function Q(u){const i=u.querySelector('script[type="text/plain"], script[type="text/quiz"]');return(i==null?void 0:i.textContent)!=null?i.textContent:u.textContent??""}class R extends HTMLElement{constructor(){super(...arguments);q(this,l);q(this,b,"");q(this,y,!1);q(this,f,[])}static get observedAttributes(){return["randomize"]}get randomize(){return this.hasAttribute("randomize")}set randomize(e){e?this.setAttribute("randomize",""):this.removeAttribute("randomize")}connectedCallback(){g(this,y)||(z(this,y,!0),I(),z(this,b,Q(this)),this.replaceChildren(),m(this,l,C).call(this),m(this,l,w).call(this))}attributeChangedCallback(e){!g(this,y)||e!=="randomize"||m(this,l,w).call(this)}}b=new WeakMap,y=new WeakMap,f=new WeakMap,l=new WeakSet,C=function(){if(this.shadowRoot)return this.shadowRoot;const e=this.attachShadow({mode:"open"}),t=document.createElement("style");return t.textContent=M,e.append(t),e},w=function(){var a,d;const e=m(this,l,C).call(this);(a=e.querySelector(".quiz"))==null||a.remove(),(d=e.querySelector(".error"))==null||d.remove();try{const r=c(g(this,b));z(this,f,this.randomize?x(r):r)}catch(r){const p=r instanceof Error?r.message:String(r),h=document.createElement("p");h.className="error",h.textContent=`a-quiz error: ${p}`,e.append(h);return}const t=document.createElement("div");t.className="quiz",t.innerHTML=g(this,f).map((r,p)=>m(this,l,L).call(this,r,p)).join("");const o=document.createElement("div");o.className="actions",o.innerHTML=`
-      <button type="button" data-action="check">Check answers</button>
-      <button type="button" data-action="reset">Reset</button>
-      <p class="result" data-result hidden></p>
-    `,t.append(o),o.addEventListener("click",r=>{const p=r.target;if(!(p instanceof HTMLElement))return;const h=p.getAttribute("data-action");h==="check"?m(this,l,v).call(this,t):h==="reset"&&m(this,l,w).call(this)}),e.append(t)},L=function(e,t){const o=t+1,a=`q${o}`,d=e.choices.map(r=>{const p=`${a}-${r.key}`;return`
-          <li class="choice">
-            <input type="radio" id="${p}" name="${a}" value="${E(r.key)}" />
-            <label for="${p}"><strong>${E(r.key)})</strong> ${E(r.text)}</label>
+`;function f(t){return t.replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;").replaceAll('"',"&quot;")}function C(t){return(t.querySelector("code")||t).textContent??""}function b(t){return t.hasAttribute("randomize")||t.hasAttribute("data-randomize")}function M(t){const e=document.createElement("div");return e.className="a-quiz",e.setAttribute(g,""),b(t)&&e.setAttribute("data-randomize",t.getAttribute("data-randomize")??""),e}function y(t){if(t.shadowRoot)return t.shadowRoot;const e=t.attachShadow({mode:"open"}),o=document.createElement("style");return o.textContent=z,e.append(o),e}function v(t){var e;return(e=t.choices.find(o=>o.correct))==null?void 0:e.key}function L(t,e,o){const n=e+1,r=`q${n}`,c=t.choices.map(s=>{const a=`${r}-${s.key}`;return`
+          <li class="choice" data-choice-key="${f(s.key)}">
+            <input type="radio" id="${a}" name="${r}" value="${f(s.key)}" />
+            <label for="${a}"><strong>${f(s.key)})</strong> ${f(s.text)}</label>
           </li>
-        `}).join("");return`
-      <section class="question" data-question-index="${t}">
-        <p class="prompt">${o}. ${E(e.prompt)}</p>
-        <ul class="choices">${d}</ul>
+        `}).join(""),i=t.correctMessage?`<p class="correct-message" data-correct-message hidden>${f(t.correctMessage)}</p>`:"";return`
+      <p class="progress">Question ${n} of ${o}</p>
+      <section class="question" data-question-index="${e}">
+        <p class="prompt">${f(t.prompt)}</p>
+        <ul class="choices">${c}</ul>
+        <div class="feedback" data-feedback hidden>
+          <p class="feedback-status" data-feedback-status></p>
+          ${i}
+        </div>
       </section>
-    `},v=function(e){let t=0;e.querySelectorAll(".question").forEach((d,r)=>{var A;const p=g(this,f)[r];if(!p)return;const h=d.querySelector('input[type="radio"]:checked'),_=(A=p.choices.find(N=>N.correct))==null?void 0:A.key,$=!!(h&&h.value===_);$&&(t+=1),d.classList.toggle("is-correct",$),d.classList.toggle("is-incorrect",!$)});const a=e.querySelector("[data-result]");a&&(a.hidden=!1,a.textContent=`Score: ${t} / ${g(this,f).length}`)},customElements.get("a-quiz")||customElements.define("a-quiz",R)})();
+    `}function T(t,e){return`
+      <p class="result" data-result>Score: ${t} / ${e}</p>
+    `}function H(t,e){const o=e.questions[e.index];if(!o||e.answered)return;const n=t.querySelector(".question");if(!n)return;const r=n.querySelector('input[type="radio"]:checked');if(!r)return;const c=v(o),i=!!(c&&r.value===c);i&&(e.correctCount+=1),e.answered=!0,n.querySelectorAll('input[type="radio"]').forEach(d=>{d.disabled=!0}),n.querySelectorAll(".choice").forEach(d=>{const l=d.getAttribute("data-choice-key");d.classList.toggle("is-correct-choice",l===c),d.classList.toggle("is-wrong-choice",l===r.value&&l!==c)});const s=n.querySelector("[data-feedback]"),a=n.querySelector("[data-feedback-status]"),u=n.querySelector("[data-correct-message]");s&&a&&(s.hidden=!1,s.classList.toggle("is-correct",i),s.classList.toggle("is-incorrect",!i),a.textContent=i?"Correct":"Incorrect"),u&&(u.hidden=!1),h(t,e)}function Q(t,e,o,n,r){if(n.answered){if(n.index>=n.questions.length-1){R(r,n);return}n.index+=1,n.answered=!1,q(t,e,o,n,r)}}function h(t,e,o=!1){const n=t.querySelector('[data-action="check"]'),r=t.querySelector('[data-action="next"]'),c=t.querySelector('[data-action="reset"]');if(o){n&&(n.hidden=!0),r&&(r.hidden=!0),c&&(c.hidden=!1);return}const i=t.querySelector(".question"),s=!!(i!=null&&i.querySelector('input[type="radio"]:checked')),a=e.index>=e.questions.length-1;n&&(n.hidden=e.answered,n.disabled=!s),r&&(r.hidden=!e.answered,r.textContent=a?"See results":"Next question"),c&&(c.hidden=!0)}function q(t,e,o,n,r){var s;const c=n.questions[n.index];if(!c)return;r.innerHTML=L(c,n.index,n.questions.length)+`
+      <div class="actions">
+        <button type="button" data-action="check" disabled>Check answer</button>
+        <button type="button" data-action="next" hidden>Next question</button>
+        <button type="button" data-action="reset" hidden>Restart</button>
+      </div>
+    `;const i=r.querySelector(".question");i==null||i.addEventListener("change",()=>{n.answered||h(r,n)}),(s=r.querySelector(".actions"))==null||s.addEventListener("click",a=>{const u=a.target;if(!(u instanceof HTMLElement))return;const d=u.getAttribute("data-action");d==="check"?H(r,n):d==="next"?Q(t,e,o,n,r):d==="reset"&&m(t,e,o)}),h(r,n)}function R(t,e){t.innerHTML=T(e.correctCount,e.questions.length)+`
+      <div class="actions">
+        <button type="button" data-action="check" hidden>Check answer</button>
+        <button type="button" data-action="next" hidden>Next question</button>
+        <button type="button" data-action="reset">Restart</button>
+      </div>
+    `,h(t,e,!0)}function m(t,e,o){var s,a;const n=y(t);(s=n.querySelector(".quiz"))==null||s.remove(),(a=n.querySelector(".error"))==null||a.remove();let r;try{const u=E(e);r=o?A(u):u}catch(u){const d=u instanceof Error?u.message:String(u),l=document.createElement("p");l.className="error",l.textContent=`a-quiz error: ${d}`,n.append(l);return}const c={questions:r,index:0,correctCount:0,answered:!1},i=document.createElement("div");i.className="quiz",n.append(i),i.addEventListener("click",u=>{const d=u.target;d instanceof HTMLElement&&d.getAttribute("data-action")==="reset"&&m(t,e,o)}),q(t,e,o,c,i)}function w(t){if(!(t instanceof HTMLElement)||t.getAttribute(g)!=null)return null;const e=C(t),o=b(t),n=M(t);return t.replaceWith(n),y(n),m(n,e,o),n}function k(t){const e=t||document;if(!e||!("querySelectorAll"in e))return[];const o=e.querySelectorAll("pre.a-quiz"),n=[];for(const r of o){if(!(r instanceof HTMLElement))continue;const c=w(r);c&&n.push(c)}return n}typeof document<"u"&&k(),p.mountAQuiz=w,p.scanAndMountAQuizzes=k,Object.defineProperty(p,Symbol.toStringTag,{value:"Module"})})(this.a_quiz=this.a_quiz||{});
