@@ -1,7 +1,7 @@
 /*
  * Generated file — do not edit directly.
- * Source: webcomponents/src/components/a-quiz/
- * Rebuild: cd webcomponents && npm run build
+ * Source: tools/modules-builder/src/modules/a-quiz/
+ * Rebuild: cd tools/modules-builder && npm run build -- a-quiz
  */
 (function(p){"use strict";const S=/^(\d+)\.\s+(.+)$/,x=/^(\*)?([A-Za-z])\)\s+(.+)$/,$=/^>\s+(.+)$/;function E(t){const e=[];let o=null;for(const n of t.split(/\r?\n/)){const r=n.trim();if(!r)continue;const c=S.exec(r);if(c){o={prompt:c[2].trim(),choices:[]},e.push(o);continue}const i=x.exec(r);if(i){if(!o)throw new Error(`Choice "${r}" appeared before any question.`);o.choices.push({correct:!!i[1],key:i[2].toLowerCase(),text:i[3].trim()});continue}const s=$.exec(r);if(s){if(!o)throw new Error(`Correct message "${r}" appeared before any question.`);if(o.choices.length===0)throw new Error(`Correct message for "${o.prompt}" appeared before any choices.`);const a=s[1].trim();o.correctMessage=o.correctMessage?`${o.correctMessage} ${a}`:a;continue}throw new Error(`Unrecognized quiz line: "${r}"`)}for(const[n,r]of e.entries()){if(r.choices.length===0)throw new Error(`Question ${n+1} has no choices.`);if(!r.choices.some(c=>c.correct))throw new Error(`Question ${n+1} has no correct choice marked with *.`)}return e}function A(t){const e=t.slice();for(let o=e.length-1;o>0;o-=1){const n=Math.floor(Math.random()*(o+1)),r=e[o];e[o]=e[n],e[n]=r}return e}const g="data-a-quiz-mounted",z=`
 :host {
