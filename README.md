@@ -40,11 +40,45 @@ Ask a member of the project for the Google Apps Script deployment ID and paste i
 | Path                       | Description                                       |
 | -------------------------- | ------------------------------------------------- |
 | `tools/`                   | Python scripts for preview, publish, and download |
+| `api/`                     | Client JS loaded into chapters via `_$_import`    |
 | `ppwjs/`                   | Example book content                              |
 | `availabooks-supplychain/` | Supply chain book content                         |
 
 
 Each book directory contains Markdown chapters (`1.md`, `2.md`, …), a `config.json`, and a `local/` folder with HTML templates for preview.
+
+## API client code (`api/`)
+
+The `api/` directory holds client-side JavaScript that loads when a blog post or book chapter is opened (for example `monaco.js`, `andy.js`, `system.js`). Chapters pull this code in with:
+
+```md
+_$_import: monaco
+```
+
+Use the filename in `api/` without the `.js` extension. Multiple modules can be listed, separated by commas (e.g. `_$_import: monaco, appsscript`).
+
+### Register a new API module on Blogger
+
+Before a file in `api/` can be used, it must exist as a post on the book’s Blogger blog:
+
+1. Create a new post whose **title** is the filename without the extension (e.g. `monaco` for `monaco.js`).
+2. Label that post with the same name (again without the extension).
+3. Set the post’s create date to **January 1, 1970** (the earliest date Blogger allows).
+
+Save the post. Then publish the local file into that post with `publish-api.py` (run from the book folder, same as the other tools):
+
+```bash
+cd ppwjs
+python ../tools/publish-api.py monaco
+```
+
+You can list several APIs in one run:
+
+```bash
+python ../tools/publish-api.py system monaco
+```
+
+The script finds the matching labeled post via the blog feed and uploads the contents of `api/<name>.js` into it. After that succeeds, chapters can use `_$_import: <name>`.
 
 ## Using the tools
 
@@ -101,7 +135,9 @@ cd ppwjs
 python ../tools/publish_pro.py 1 2 3
 ```
 
-With no chapter arguments, `publish_pro.py` publishes every numeric Markdown chapter. It writes Pandoc-generated HTML fragments and a manifest into `pro/content/{slug}/`, copies any modules requested by `_$_import` (such as `monaco`) from `tools/api/` into Pro's static assets, then runs the Hono SSG build in `pro/`. This does not publish or change Blogger content. Deploy the generated site separately with `cd ../pro && npm run deploy`.
+With no chapter arguments, `publish_pro.py` publishes every numeric Markdown chapter. It writes Pandoc-generated HTML fragments and a manifest into `pro/content/{slug}/`, copies any modules requested by `_$_import` (such as `monaco`) from `api/` into Pro's static assets, then runs the Hono SSG build in `pro/`. This does not publish or change Blogger content. Deploy the generated site separately with `cd ../pro && npm run deploy`.
+
+For Blogger, API modules still go through the one-time Blogger post setup and `publish-api.py` described under [API client code](#api-client-code-api).
 
 **Download from the blog** — pulls down the current live content to use as your local working copy:
 
