@@ -19,6 +19,9 @@ from utils import terminal_bold
 #    Be in the root of the book to publish and run
 #   python ../tools/publish.py 1 2
 #   where 1 refers to 1.md, the chapter to publish and 2 refers to 2.md, the next chapter to publish.  You can publish as many chapters as you want in one go by listing them all in the command.  Just make sure to list them in order so that the numbering of the chapters is correct on the blog.
+#   Include "config" in the argument list (e.g. python ../tools/publish.py config 1 2) to also push
+#   config.json's contents to the post labeled "book". Running with no arguments at all publishes
+#   config.json to the "book" post as well, in addition to auto-discovering changed chapters.
 
 
 def process(file_name):
@@ -56,6 +59,57 @@ def process(file_name):
         pprint.pprint(response, indent=4, sort_dicts=False)
     else:
         print("Success.")    
+
+
+def process_config():
+    """Push the raw contents of config.json to the post labeled "book"."""
+    with open("config.json", 'r', encoding='utf-8') as file:
+        file_contents = file.read()
+
+    blogId, postId = getIdsFromFeed("book")
+
+    raw_path = os.path.join(os.path.dirname(__file__), '..', 'tools', 'deploymentId.txt')
+    file_path = os.path.abspath(raw_path)
+    with open(file_path, 'r') as f:
+        deploymentId = f.read()
+
+    url = 'https://script.google.com/macros/s/'+deploymentId+'/exec'
+    payload = {'mode': 'publish',
+               'content':file_contents,
+               'blogId':blogId,
+               'postId':postId
+               }
+
+    print("Updating")
+    print("     Post: book")
+    print("  Blog ID:",blogId)
+    print("  Post ID:",postId)
+
+    response = requests.post(url, json = payload).json()
+
+    if "error" in response:
+        print("============================== Update Failed ==============================")
+        pprint.pprint(response, indent=4, sort_dicts=False)
+    else:
+        print("Success.")
+
+
+def wants_config_publish(argv):
+    """True when a "config" (or "config.json") arg was passed on the CLI."""
+    return any(os.path.basename(arg).lower() in ("config", "config.json") for arg in argv[1:])
+
+
+def confirm_config_publish():
+    """Ask the user to confirm before publishing config.json to the "book" post."""
+    print()
+    print("Will publish contents of config.json to the post labeled 'book'.")
+    print()
+    answer = input("Type 'yes' to continue: ").strip().lower()
+    if answer != "yes":
+        print("Skipped — config.json not published.")
+        return False
+    print()
+    return True
 
 
 def getIdsFromFeed(file_name):
@@ -197,6 +251,10 @@ def filter_to_changed(chapters):
 
 def main():
     if len(sys.argv) > 1:
+        if wants_config_publish(sys.argv) and confirm_config_publish():
+            print("\n\n\n")
+            process_config()
+            print("\n\n\n")
         chapters = chapters_from_argv(sys.argv)
         if not chapters:
             print("No chapters to publish.")
@@ -214,6 +272,10 @@ def main():
             process(base)
         print("\n\n\n")
     else:
+        if confirm_config_publish():
+            print("\n\n\n")
+            process_config()
+            print("\n\n\n")
         chapters = discover_changed_chapters()
         if not chapters:
             print("Nothing to publish — all chapters match the blog.")

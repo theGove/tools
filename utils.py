@@ -122,18 +122,20 @@ def html_content_equals(local_html, remote_html):
 
 def fetch_chapter_feed_entries(blog_url):
     """
-    Fetch all Blogger posts labeled chapter (paginated feed).
+    Fetch all Blogger posts labeled chapter.
     @param {string} blog_url - Hostname from config, e.g. book1007.blogspot.com.
+
+    Requests a large max-results instead of following the feed's own "next"
+    link: for this label-filtered feed, Blogger's self-generated next-page
+    URL duplicates the label segment (.../-/chapter/-/chapter?...) and comes
+    back with zero entries, silently dropping every chapter past the first
+    page (e.g. chapter 1, being the oldest post, lands on page 2).
     """
-    entries = []
-    url = f"https://{blog_url}/feeds/posts/default/-/chapter?alt=json"
-    while url:
-        response = requests.get(url)
-        response.raise_for_status()
-        feed = response.json()["feed"]
-        entries.extend(feed.get("entry", []))
-        url = next((link["href"] for link in feed.get("link", []) if link.get("rel") == "next"), None)
-    return entries
+    url = f"https://{blog_url}/feeds/posts/default/-/chapter?alt=json&max-results=500"
+    response = requests.get(url)
+    response.raise_for_status()
+    feed = response.json()["feed"]
+    return feed.get("entry", [])
 
 
 def remote_html_by_chapter(entries):

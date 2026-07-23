@@ -91,3 +91,9 @@ This script:
 - Downloads the table of contents page and every chapter page linked from it into `local/`
 - Downloads any Blogger posts tagged with the `data` label and saves each one as a JSON file in `local/feeds/`
 
+
+
+To build the TOC:  open 
+
+https://book1014.blogspot.com/1970/01/table-of-contents.html?deploymentId=<deploymentId from deploymentId.txt>  
+This will scan the book for numbered chapters then updated the toc with the correct data

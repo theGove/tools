@@ -1,0 +1,3 @@
+import feed.atom from this folder into a new blog to get the base structure
+atlasQuery is an admin on this blog for export purposes.
+the blog is called empty-book-template

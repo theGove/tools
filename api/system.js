@@ -341,6 +341,31 @@ function showSection(section, recordHash=true){
 }
 
 function navigate(direction){
+    const path= location.pathname.replace(".","/").split("/")
+
+    let nextNumber=null
+    if(direction==="prior"){
+      nextNumber = parseInt(path[3])-1 
+      if (nextNumber<1){
+        return// no where to go
+      }
+    }else{
+    nextNumber = parseInt(path[3])+1
+      if (nextNumber>window.lastChapterId){
+        return// no where to go
+      }
+    }
+
+
+    path[3]=nextNumber+"."+path.pop()
+    console.log("I'm navigating",path.join("/"))
+    window.location.href=path.join("/")
+
+    return
+    // assuming full chapter navigation
+
+
+
     // used for the navigation buttons. direction is 'next' or 'prior'
     targetNode = tag(direction + "-button")
     const parentNode = targetNode.parentNode
@@ -357,7 +382,6 @@ function navigate(direction){
     parentNode.appendChild(clonedElement)
     
 }
-
 function showMenu(){
     // show the menu
     //console.log("showing menu")
@@ -404,6 +428,7 @@ async function getToc(){
     tag("book-title").getElementsByTagName("a")[0].replaceChildren(toc.bookInfo.title)
 
     const  html=[]
+    
     for(const chapter of toc.chapters){
         if(chapter.sections){
             let chapterNumber = window.location.pathname.split("/").pop().split(".")[0]
@@ -421,6 +446,7 @@ async function getToc(){
           }
             html.push(`<div>${label}<a href="${chapter.id}.html">${chapter.text}</a></div>`)
         }        
+        window.lastChapterId=parseInt(chapter.id)
     }
     tag("toc").innerHTML=html.join("\n")
 
