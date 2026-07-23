@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Modules playground</title>
+    <style>
+      body {
+        margin: 2rem;
+        font: 1rem/1.5 system-ui, sans-serif;
+      }
+      label {
+        display: flex;
+        gap: 0.5rem;
+        align-items: center;
+        margin-bottom: 1.5rem;
+      }
+      #preview {
+        min-height: 3rem;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Modules playground</h1>
+    <label>
+      Module
+      <select id="module-select"></select>
+    </label>
+    <div id="preview"></div>
+    <script type="module" src="/src/playground.ts"></script>
+  </body>
+</html>

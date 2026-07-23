@@ -1,3 +1,6 @@
 deploymentId.txt
 __pycache__/
 .venv/
+.env
+credentials.json
+token.json
