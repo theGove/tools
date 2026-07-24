@@ -115,9 +115,12 @@ async function main() {
   }
 
   /**
-   * Handles dropdown changes by loading the chosen module.
+   * Handles dropdown changes by updating the URL and loading the chosen module.
    */
   const onChange = () => {
+    const url = new URL(window.location.href);
+    url.searchParams.set("c", select.value);
+    history.replaceState(null, "", url);
     void loadModule(select.value, preview);
   };
 
