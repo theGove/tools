@@ -410,6 +410,17 @@ function hideMenu(){
       
 }
 
+function getAiHelpPrompt(){
+    const text=["I'm currently a student studying this book:"]
+    text.push(json.stringify(window.availabooksToc))
+    text.push(`I'm currently studying chapter ${window.availabooksChapter}.`)
+    text.push("as we interact, this gives you a sense for what I've learned and what is coming in my course of study, so you can give me appropriate help.  I'll favor repsonses that rely heavily on the content I've already covered, but if you do need to refer to someting I have not year learned, I perfer that you use ideas that are coming in this course of study. Only refer to content outside of this course of study when absolutely necessary to provide a reasonable answer.  Anytime you are using concepts that I have not already learned, be sure to give me the option for a more detailed explanation.")
+
+    navigator.clipboard.writeText(text.join("\n"))
+      .then(() => console.log("Copied!"))
+      .catch(err => console.error("Failed:", err));
+}
+
 async function getToc(){
     let url=window.location  
     path = url.pathname.split("/")
@@ -426,14 +437,15 @@ async function getToc(){
     const text = await response.text();
     const toc=JSON.parse(text.split('<div style="display:none" id="toc-json">')[1].split("</div     >")[0])
     tag("book-title").getElementsByTagName("a")[0].replaceChildren(toc.bookInfo.title)
-
-    const  html=[]
+    window.availabooksToc=toc
+    const  html=[] //`<div id="toc-json" style="display:none">${JSON.stringify(toc)}</div>`
     
     for(const chapter of toc.chapters){
         if(chapter.sections){
             let chapterNumber = window.location.pathname.split("/").pop().split(".")[0]
             if(chapterNumber === chapter.id){
                 html.push("<details open>")
+                window.availabooksChapter=chapterNumber
             }else{
                 html.push("<details>")
             }

@@ -19,7 +19,7 @@ function loadCode(json) {
 
 
 function init() {
-  loadCodeFromBlogger("https://pglite.blogspot.com", "app");
+  loadCodeFromBlogger("https://pglite.blogspot.com", "embed");
 }
 
 init()                                             
