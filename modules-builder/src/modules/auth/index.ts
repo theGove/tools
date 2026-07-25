@@ -431,65 +431,8 @@ function apiUrl(origin: string, path: string) {
   return new URL(path, `${origin}/`).toString();
 }
 
-/** localStorage key for the sealed Pro session (first-party to the book host). */
-function sessionStorageKey(origin: string) {
-  return `availabooks.wos-session:${origin || "same-origin"}`;
-}
-
 /**
- * Reads the sealed session stored for this Pro origin.
- */
-function readStoredSession(origin: string) {
-  try {
-    return localStorage.getItem(sessionStorageKey(origin));
-  } catch {
-    return null;
-  }
-}
-
-/**
- * Persists or clears the sealed session for this Pro origin.
- */
-function writeStoredSession(origin: string, session: string | null) {
-  try {
-    const key = sessionStorageKey(origin);
-    if (!session) {
-      localStorage.removeItem(key);
-      return;
-    }
-    localStorage.setItem(key, session);
-  } catch {
-    // Private mode / blocked storage — cookie-only fallback still applies.
-  }
-}
-
-/**
- * Saves a session token from an auth API payload when present.
- */
-function syncSessionFromPayload(origin: string, payload: unknown) {
-  if (!payload || typeof payload !== "object") {
-    return;
-  }
-  const session = (payload as { session?: unknown }).session;
-  if (typeof session === "string" && session.trim()) {
-    writeStoredSession(origin, session.trim());
-  }
-}
-
-/**
- * Builds fetch headers, attaching Bearer session when stored.
- */
-function authHeaders(origin: string, init?: HeadersInit) {
-  const headers = new Headers(init);
-  const session = readStoredSession(origin);
-  if (session) {
-    headers.set("Authorization", `Bearer ${session}`);
-  }
-  return headers;
-}
-
-/**
- * Posts JSON to a Pro auth endpoint with credentials + optional Bearer session.
+ * Posts JSON to a Pro auth endpoint with credentials (HttpOnly cookie session).
  */
 async function postAuthJson(
   origin: string,
@@ -499,11 +442,10 @@ async function postAuthJson(
   const response = await fetch(apiUrl(origin, path), {
     method: "POST",
     credentials: "include",
-    headers: authHeaders(origin, { "Content-Type": "application/json" }),
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
   });
   const payload = await response.json().catch(() => ({}));
-  syncSessionFromPayload(origin, payload);
   return { response, payload };
 }
 
@@ -625,7 +567,6 @@ function AuthPanel(origin: string) {
     try {
       const response = await fetch(url, {
         credentials: "include",
-        headers: authHeaders(origin),
       });
       const payload = await response.json().catch(() => null);
 
@@ -642,18 +583,16 @@ function AuthPanel(origin: string) {
 
       const me = payload?.user as AuthUser | null | undefined;
       if (!me) {
-        writeStoredSession(origin, null);
         setStatus({ kind: "signed-out" }, payload);
         return;
       }
 
-      syncSessionFromPayload(origin, payload);
       setStatus({ kind: "signed-in", user: me }, payload);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       setStatus({
         kind: "error",
-        message: `Could not reach Pro auth (${message}). Is the Pro server running at this origin? Cross-origin cookies require the book and Pro to share a site, or view this chapter on Pro.`,
+        message: `Could not reach Pro auth (${message}). Is the Pro server running at this origin? Books must be on *.availabooks.com (or localhost) so the session cookie is sent.`,
       });
     }
   };
@@ -663,7 +602,6 @@ function AuthPanel(origin: string) {
     try {
       const response = await fetch(url, {
         credentials: "include",
-        headers: authHeaders(origin),
       });
       const payload = await response.json().catch(() => null);
       rawJson.val = JSON.stringify(
@@ -716,7 +654,6 @@ function AuthPanel(origin: string) {
 
     clearMessage();
     passwordValue.val = "";
-    syncSessionFromPayload(origin, payload);
     await refreshStatus();
   };
 
@@ -859,12 +796,11 @@ function AuthPanel(origin: string) {
       await fetch(apiUrl(origin, "/api/auth/logout"), {
         method: "POST",
         credentials: "include",
-        headers: authHeaders(origin, { Accept: "application/json" }),
+        headers: { Accept: "application/json" },
       });
     } catch {
       // Still clear local UI state.
     }
-    writeStoredSession(origin, null);
     await refreshStatus();
   };
 
