@@ -1,24 +1,18 @@
 import sys
 import os
 
-from utils import chapter_base_name
-from utils import processDocument
-from utils import getTitle
+from utils import existing_chapter_md_path
+from utils import load_chapter_html_and_title
 
 #   parse the markdown file, convert to html and integrate it into the local copy
 #   Be in the root of the book to publish and run
-#   python ../tools/publish.py 1 
+#   python ../tools/publish.py 1
 #   where 1 refers to 1.md, the chapter to publish
 
 
 def process(file_name):
 
-    with open(file_name+".md", 'r', encoding='utf-8') as file:
-        file_contents = file.read()
-
-    html = processDocument(file_contents,  file_name)
-    title=getTitle(html, file_name)
-    
+    html, title = load_chapter_html_and_title(file_name)
 
     filePath = os.path.join("local", file_name + ".html")
     print ("Updating...")
@@ -52,10 +46,8 @@ def main():
     if len(sys.argv) > 1:
         for i, file_name in enumerate(sys.argv):
             if i > 0:
-                base = chapter_base_name(file_name)
-                md_path = base + ".md"
-                if not os.path.isfile(md_path):
-                    print(f"Skipping {file_name}: {md_path} not found")
+                base = existing_chapter_md_path(file_name)
+                if base is None:
                     continue
                 print("\n\n\n")
                 process(base)

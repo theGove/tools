@@ -59,26 +59,26 @@ Use the filename in `api/` without the `.js` extension. Multiple modules can be 
 
 ### Register a new API module on Blogger
 
-Before a file in `api/` can be used, it must exist as a post on the book’s Blogger blog:
+Api modules are published to the shared `availabooks-system.blogspot.com` blog, not the book’s own blog. Before a file in `api/` can be used, it must exist as a post on that blog:
 
 1. Create a new post whose **title** is the filename without the extension (e.g. `monaco` for `monaco.js`).
-2. Label that post with the same name (again without the extension).
+2. Label that post with two labels: the same name (again without the extension) and the version to publish it to (e.g. `dev`).
 3. Set the post’s create date to **January 1, 1970** (the earliest date Blogger allows).
 
-Save the post. Then publish the local file into that post with `publish-api.py` (run from the book folder, same as the other tools):
+Save the post. Then publish the local file into that post with `publish-api.py` (run from the book folder, same as the other tools), passing the version first:
 
 ```bash
 cd ppwjs
-python ../tools/publish-api.py monaco
+python ../tools/publish-api.py dev monaco
 ```
 
 You can list several APIs in one run:
 
 ```bash
-python ../tools/publish-api.py system monaco
+python ../tools/publish-api.py dev system monaco
 ```
 
-The script finds the matching labeled post via the blog feed and uploads the contents of `api/<name>.js` into it. After that succeeds, chapters can use `_$_import: <name>`.
+The script finds the post labeled with both the api name and the version via the blog feed and uploads the contents of `api/<name>.js` into it. If no post matches both labels, it exits with an error instead of publishing. After it succeeds, chapters can use `_$_import: <name>`.
 
 ## Using the tools
 

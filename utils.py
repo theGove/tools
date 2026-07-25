@@ -160,7 +160,56 @@ def local_chapter_html(chapter_base):
     md_path = chapter_base + ".md"
     with open(md_path, "r", encoding="utf-8") as file:
         file_contents = file.read()
-    return processDocument(file_contents, chapter_base)
+    html = processDocument(file_contents, chapter_base)
+    return runPreProcess(html)
+
+def runPreProcess(html):
+    print ("running preprocesses")
+    html = makeAiConversation(html)
+    return html
+
+def makeAiConversation(html):
+    print ("making AI conversation")
+    doc = BeautifulSoup(html, 'html.parser')
+    aiDivs = doc.find_all("div", class_='ai-conversation')
+    if not aiDivs:
+        return html
+    for aiDiv in aiDivs:
+        blockquote = aiDiv.find("blockquote")
+        if blockquote is None:
+            continue
+        prompt_div = doc.new_tag("div", **{"class": "ai-prompt"})
+        text_span = doc.new_tag("span", **{"class": "ai-prompt-text"})
+        text_span.string = aiDiv.get("data-prompt", "")
+        x_span = doc.new_tag("span", **{"class": "ai-prompt-x material-symbols-outlined", "onclick": "copyThisPrompt(event)"})
+        x_span.string = "send"
+        prompt_div.append(text_span)
+        prompt_div.append(x_span)
+        blockquote.insert(0, prompt_div)
+    return str(doc)
+
+def load_chapter_html_and_title(file_name):
+    """
+    Convert a chapter's markdown to (html, title).
+    @param {string} file_name - Chapter id without extension, e.g. '1'.
+    """
+    output = local_chapter_html(file_name)
+    title = getTitle(output, file_name)
+    return output, title
+
+
+def existing_chapter_md_path(arg):
+    """
+    Return the chapter base for arg if its .md file exists locally, else None.
+    Prints a "Skipping ..." message naming the original arg when the file is missing.
+    @param {string} arg - CLI arg naming a chapter, e.g. '1' or '1.md'.
+    """
+    base = chapter_base_name(arg)
+    md_path = base + ".md"
+    if not os.path.isfile(md_path):
+        print(f"Skipping {arg}: {md_path} not found")
+        return None
+    return base
 
 
 def list_numeric_chapter_bases():

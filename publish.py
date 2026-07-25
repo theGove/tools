@@ -8,14 +8,15 @@ import requests
 from bs4 import BeautifulSoup
 
 from utils import chapter_base_name
+from utils import existing_chapter_md_path
 from utils import is_numeric_chapter_base
 from utils import fetch_chapter_feed_entries
 from utils import getJsonFile
 from utils import getTitle
 from utils import html_content_equals
 from utils import list_numeric_chapter_bases
+from utils import load_chapter_html_and_title
 from utils import local_chapter_html
-from utils import processDocument
 from utils import remote_html_by_chapter
 from utils import terminal_bold
 
@@ -58,11 +59,7 @@ def process(file_name):
     Convert one chapter markdown file to HTML and publish it to the blog.
     @param {string} file_name - Chapter id without extension (e.g. '1').
     """
-    with open(file_name + ".md", "r", encoding="utf-8") as file:
-        file_contents = file.read()
-
-    html = processDocument(file_contents, file_name)
-    title = getTitle(html, file_name)
+    html, title = load_chapter_html_and_title(file_name)
     blog_id, post_id = getIdsFromFeed(file_name)
 
     payload = {
@@ -349,12 +346,10 @@ def chapters_from_argv(argv):
     """Collect chapter ids from CLI args, in order, skipping missing or non-chapter files."""
     chapters = []
     for arg in argv[1:]:
-        base = chapter_base_name(arg)
-        if not is_numeric_chapter_base(base):
+        if not is_numeric_chapter_base(chapter_base_name(arg)):
             continue
-        md_path = base + ".md"
-        if not os.path.isfile(md_path):
-            print(f"Skipping {arg}: {md_path} not found")
+        base = existing_chapter_md_path(arg)
+        if base is None:
             continue
         chapters.append(base)
     return chapters

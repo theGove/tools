@@ -1,4 +1,8 @@
-/* currently, this must be copied by hand into each book's blogger template*/
+/* This file is the source of truth for book CSS, but there is no publish script for it.
+   After editing, copy the changed rules by hand into each book's Blogger theme HTML
+   (the page-skin-1 <style> block) via the Blogger dashboard.
+   Do NOT edit local/*.html to apply these changes - those files are downloaded verbatim
+   from the live blog by download.py and get overwritten on the next run. */
 :root {
 --font-zoom: 1;
 --page-bg: #f8fafc;
@@ -119,6 +123,24 @@ padding: .85rem;
 }
 #page-data{
 display:none
+}
+.toast{
+position:fixed;
+bottom:2rem;
+left:50%;
+transform:translateX(-50%);
+z-index:9999;
+background-color:purple;
+color:#fff;
+padding:.7rem 1.25rem;
+border-radius:var(--radius-md);
+box-shadow:var(--shadow-lg);
+}
+.toast.success{
+background-color:#15803d;
+}
+.toast.error{
+background-color:var(--danger);
 }
 #menu{
 top:0;
@@ -441,7 +463,6 @@ font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 20;
 font-size: 18px;
 line-height: 1;
 }
-
 blockquote{
 margin:1.75rem 0;
 padding:1rem 1.25rem 1rem 1.35rem;
@@ -450,46 +471,39 @@ border-left:.35rem solid var(--accent);
 border-radius:0 var(--radius-md) var(--radius-md) 0;
 color:#334155;
 }
-
-
 .note blockquote{
 background:#E8F5E9;
 border-left:.35rem solid darkgreen;
 }
 .note blockquote p::before {
-  content: "Note: ";
-  font-weight: bold;
+content: "Note: ";
+font-weight: bold;
 }
-
 .tip blockquote{
 background:#F3E5F5;
 border-left:.35rem solid purple;
 }
 .tip blockquote p::before {
-  content: "Tip: ";
-  font-weight: bold;
+content: "Tip: ";
+font-weight: bold;
 }
-
 .term blockquote{
 background:#E3EDF7;
 border-left:.35rem solid darkblue;
 }
 .term blockquote p::before {
-  content: "Term: ";
-  font-weight: bold;
-  color:#2B7FFF;
+content: "Term: ";
+font-weight: bold;
+color:#2B7FFF;
 }
-
 .caution blockquote{
 background:#FFE2E2;
 border-left:.35rem solid red;
 }
 .caution blockquote p::before {
-  content: "Caution: ";
-  font-weight: bold;
+content: "Caution: ";
+font-weight: bold;
 }
-
-
 .objectives blockquote{
 background:#FFF8E1;
 border-left:.35rem solid gold;
@@ -500,22 +514,45 @@ border-radius:0;
 content: "Objectives: ";
 font-weight: bold;
 }
-
 .review blockquote{
 background:#FFF0EC;
 border-left:.35rem solid salmon;
 }
 .review blockquote p::before {
-  content: "Review: ";
-  font-weight: bold;
+content: "Review: ";
+font-weight: bold;
 }
+
+.ai-conversation blockquote{
+  background:lightgrey;
+  border:1px solid #bbb;
+  border-radius: 5px;
+}
+
+div.ai-prompt{
+  background:white;
+  border:1px solid grey;
+  border-radius: 10px;
+  padding:10px 20px 10px 20px;
+  box-shadow: 3px 3px 5px 0px rgba(0, 0, 0, 0.3);
+  margin: 0 1rem 1rem 1rem;
+
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+span.ai-prompt-x{
+  font-size: 1.8em;
+}
+
+
 
 
 
 blockquote p:last-child{
 margin-bottom:0;
 }
-
 hr{
 height:1px;
 border:0;
@@ -767,5 +804,3 @@ left: .75rem;
 right: .75rem;
 }
 }
-
-

@@ -2,7 +2,7 @@
 function loadCodeFromBlogger(url, label){
   //The url and label is used to generate the blog feed url
   const script = document.createElement('script');
-  script.src = `${url}/feeds/posts/default/-/${label}?alt=json-in-script&max-results=1&&callback=loadCode`;
+  script.src = `${url}/feeds/posts/default/-/${label}?alt=json-in-script&max-results=1&callback=loadCode`;
   document.head.appendChild(script);
 }
 

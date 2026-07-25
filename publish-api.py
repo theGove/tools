@@ -6,23 +6,26 @@ import os
 
 from utils import processDocument
 from utils import getTitle
-from utils import getJsonFile
 from utils import getPreProcessArgs
 
-#   Publishes an api file to the current book blog
+#   Publishes an api file to the availabooks-system blog
 #    Be in the root of the book to publish and run
-#   python ../tools/publish-api.py system monaco
-#   where system refers to /tools/api/system.js and monaco is the next api to publish, /tools/api/monaco.js.  You can publish as many apis as you want in one go by listing them all in the command.  Just make sure to list them in order so that the numbering of the chapters is correct on the blog.
+#   python ../tools/publish-api.py <version> system monaco
+#   where version is the target to publish to (e.g. dev, stable), system refers to /tools/api/system.js and monaco is the next api to publish, /tools/api/monaco.js.  You can publish as many apis as you want in one go by listing them all in the command.  Just make sure to list them in order so that the numbering of the chapters is correct on the blog.
+#   If only one argument is given, it is treated as a file name and version defaults to "dev":
+#   python ../tools/publish-api.py monaco
+
+BLOG_URL = "https://availabooks-system.blogspot.com/"
 
 
-def process(file_name):
-    if not file_name.endswith(".js"):
-        file_name += ".js"    
+def process(file_name, version):
+    file_name = resolveApiFileName(file_name)
     print("filename", file_name)
     with open(os.path.join("..","tools","api",file_name), 'r', encoding='utf-8') as file:
         file_contents = file.read()
 
-    blogId, postId = getIdsFromFeed(file_name.removesuffix(".js"))
+    base_name = os.path.splitext(file_name)[0]
+    ids = getIdsFromFeed(base_name, version)
 
     raw_path = os.path.join(os.path.dirname(__file__), '..', 'tools', 'deploymentId.txt')
     file_path = os.path.abspath(raw_path)
@@ -30,40 +33,107 @@ def process(file_name):
         deploymentId = f.read()
 
     url = 'https://script.google.com/macros/s/'+deploymentId+'/exec'
+
+    if ids is None:
+        answer = input(f"No post found on the availabooks-system blog labeled with both '{base_name}' and '{version}'. Create it? [y/N] ")
+        if answer.strip().lower() not in ("y", "yes"):
+            print("Aborting.")
+            sys.exit(1)
+
+        payload = {'mode': 'make-post',
+                   'content':file_contents,
+                   'title':base_name,
+                   'labels':[base_name, version],
+                   'blogId':getBlogId(),
+                   'published':getPublishedDateForVersion(version)
+                   }
+
+        print("Creating")
+        print("    title:",base_name)
+        print("   labels:",payload['labels'])
+        print("  Blog ID:",payload['blogId'])
+
+        raw_response = requests.post(url, json = payload)
+        print("HTTP status:", raw_response.status_code)
+        print("Raw response:", raw_response.text)
+        response = raw_response.json()
+
+        if "error" in response:
+            print("============================== Create Failed ==============================")
+            pprint.pprint(response, indent=4, sort_dicts=False)
+        else:
+            print("Success.")
+        return
+
+    blogId, postId = ids
     payload = {'mode': 'publish',
                'content':file_contents,
                'blogId':blogId,
-               'postId':postId
+               'postId':postId,
+               'version':version
                }
 
     print("Updating")
     print("     file:",file_name)
     print("  Blog ID:",blogId)
     print("  Post ID:",postId)
+    print("  Version:",version)
 
-    response = requests.post(url, json = payload).json()
-    
+    raw_response = requests.post(url, json = payload)
+    print("HTTP status:", raw_response.status_code)
+    print("Raw response:", raw_response.text)
+    response = raw_response.json()
 
     if "error" in response:
         print("============================== Update Failed ==============================")
         pprint.pprint(response, indent=4, sort_dicts=False)
     else:
-        print("Success.")    
+        print("Success.")
 
 
-def getIdsFromFeed(file_name):
+def resolveApiFileName(file_name):
+    if os.path.splitext(file_name)[1]:
+        return file_name
+
+    api_dir = os.path.join("..", "tools", "api")
+    matches = [f for f in os.listdir(api_dir) if os.path.splitext(f)[0] == file_name]
+
+    if len(matches) == 0:
+        print(f"No file named '{file_name}' found in the api folder.")
+        sys.exit(1)
+    if len(matches) > 1:
+        print(f"More than one file named '{file_name}' found in the api folder ({', '.join(sorted(matches))}). Specify the extension to disambiguate.")
+        sys.exit(1)
+
+    return matches[0]
+
+
+def getBlogId():
+    # feed-level id is "tag:blogger.com,1999:blog-<blogId>", independent of any single post
+    url = BLOG_URL + "feeds/posts/default?alt=json&max-results=1"
+    blogData = requests.get(url).json()
+    return blogData["feed"]["id"]["$t"].split("blog-")[1]
+
+
+def getPublishedDateForVersion(version):
+    url = BLOG_URL + "feeds/posts/default/-/" + version + "?alt=json"
+    blogData = requests.get(url).json()
+    entries = blogData["feed"].get("entry", [])
+    if entries:
+        return entries[0]["published"]["$t"]
+
+    print(f"'{version}' is not a valid version: no existing posts are labeled with it.")
+    sys.exit(1)
+
+
+def getIdsFromFeed(file_name, version):
     print("Getting blog and post IDs from feed...")
-    config =  getJsonFile('config.json')
-    if config=="failed":
-        print("Failed to get configuration")
-        sys.exit()
 
-    # fetch post from feed so we can get the blogId and postId
-    url="http://"+config['blogUrl']+"/feeds/posts/default/-/" + file_name + "?alt=json"
+    # fetch the post labeled with both the api name and the version so we can get the blogId and postId
+    url = BLOG_URL + "feeds/posts/default/-/" + file_name + "/" + version + "?alt=json"
     # print(url)
     blogData = requests.get(url).json()
-    # print(blogData["feed"]["entry"])
-    for item in blogData["feed"]["entry"]:
+    for item in blogData["feed"].get("entry", []):
       for link in item["link"]:
         filename = link["href"].split("/").pop()
         if filename ==file_name + ".html":
@@ -74,16 +144,24 @@ def getIdsFromFeed(file_name):
             #print(blogId, postId)
             return blogId, postId
 
+    return None
+
 
 def main():
-    if len(sys.argv) > 1:
-        for i, file_name in enumerate(sys.argv):
-            if i > 0:
-                print("\n\n\n")
-                process(file_name)            
-        print("\n\n\n")
+    if len(sys.argv) == 2:
+        version = "dev"
+        file_names = sys.argv[1:]
+    elif len(sys.argv) > 2:
+        version = sys.argv[1]
+        file_names = sys.argv[2:]
     else:
-        print("must provide the name of a api file (without the extension).  This is usually a chapter number")
+        print("must provide the name of at least one api file, optionally preceded by the version to publish to (dev, stable, etc); defaults to dev")
+        return
+
+    for file_name in file_names:
+        print("\n\n\n")
+        process(file_name, version)
+    print("\n\n\n")
 
 if __name__=="__main__":
     main()        

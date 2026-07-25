@@ -410,11 +410,22 @@ function hideMenu(){
       
 }
 
+function copyThisPrompt(event){
+  console.log("at copyThisPrompt")  
+  showToast("I'm juicing!")
+  const prior = event.target.previousElementSibling;
+  if (!prior) return;
+
+  navigator.clipboard.writeText(prior.innerText)
+    .then(() => showToast("prompt for AI copied"))
+    .catch(console.error);
+}
+
 function getAiHelpPrompt(){
     const text=["I'm currently a student studying this book:"]
-    text.push(json.stringify(window.availabooksToc))
+    text.push(JSON.stringify(window.availabooksToc))
     text.push(`I'm currently studying chapter ${window.availabooksChapter}.`)
-    text.push("as we interact, this gives you a sense for what I've learned and what is coming in my course of study, so you can give me appropriate help.  I'll favor repsonses that rely heavily on the content I've already covered, but if you do need to refer to someting I have not year learned, I perfer that you use ideas that are coming in this course of study. Only refer to content outside of this course of study when absolutely necessary to provide a reasonable answer.  Anytime you are using concepts that I have not already learned, be sure to give me the option for a more detailed explanation.")
+    text.push("as we interact, this gives you a sense for what I've learned and what is coming in my course of study, so you can give me appropriate help.  I'll favor responses that rely heavily on the content I've already covered, but if you do need to refer to something I have not year learned, I prefer that you use ideas that are coming in this course of study. Only refer to content outside of this course of study when absolutely necessary to provide a reasonable answer.  Anytime you are using concepts that I have not already learned, be sure to give me the option for a more detailed explanation.")
 
     navigator.clipboard.writeText(text.join("\n"))
       .then(() => console.log("Copied!"))
@@ -538,6 +549,32 @@ function showHighlight(){
 
 
 
+
+//==========how to use the toast notification system===========
+// showToast("Saved.")                  // neutral info
+// showToast("Saved successfully.", "success")
+// showToast("Save failed.", "error")
+function getToastEl(){
+    let el = tag("toast")
+    if (!el) {
+        el = document.createElement("div")
+        el.id = "toast"
+        el.hidden = true
+        document.body.appendChild(el)
+    }
+    return el
+}
+
+function showToast(message, kind) {
+    const toastEl = getToastEl();
+    toastEl.textContent = message;
+    toastEl.className = "toast" + (kind ? " " + kind : "");
+    toastEl.hidden = false;
+    clearTimeout(showToast._t);
+    showToast._t = setTimeout(() => {
+        toastEl.hidden = true;
+    }, 3200);
+}
 
 function closeMessage(evt) {
     let dialog
