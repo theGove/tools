@@ -1,8 +1,5 @@
-/* This file is the source of truth for book CSS, but there is no publish script for it.
-   After editing, copy the changed rules by hand into each book's Blogger theme HTML
-   (the page-skin-1 <style> block) via the Blogger dashboard.
-   Do NOT edit local/*.html to apply these changes - those files are downloaded verbatim
-   from the live blog by download.py and get overwritten on the next run. */
+/* This file is the source of truth for book CSS. It is published like system modules
+and when running locally, it overwrites what ever is imported from the blog */
 :root {
 --font-zoom: 1;
 --page-bg: #f8fafc;
@@ -475,52 +472,87 @@ color:#334155;
 background:#E8F5E9;
 border-left:.35rem solid darkgreen;
 }
-.note blockquote p::before {
+.note blockquote p:first-child::before {
 content: "Note: ";
 font-weight: bold;
+color:#147523;
 }
 .tip blockquote{
 background:#F3E5F5;
 border-left:.35rem solid purple;
 }
-.tip blockquote p::before {
-content: "Tip: ";
-font-weight: bold;
+.tip blockquote p:first-child::before {
+  content: "Tip: ";
+  font-weight: bold;
+  color:rgb(182, 0, 182);
 }
 .term blockquote{
 background:#E3EDF7;
 border-left:.35rem solid darkblue;
 }
-.term blockquote p::before {
+.term blockquote p:first-child::before {
 content: "Term: ";
 font-weight: bold;
-color:#2B7FFF;
+color:#2161c1;
 }
 .caution blockquote{
 background:#FFE2E2;
 border-left:.35rem solid red;
 }
-.caution blockquote p::before {
+.caution blockquote p:first-child::before {
 content: "Caution: ";
 font-weight: bold;
-}
-.objectives blockquote{
-background:#FFF8E1;
-border-left:.35rem solid gold;
-border-right:.35rem solid gold;
-border-radius:0;
-}
-.objectives blockquote p::before {
-content: "Objectives: ";
-font-weight: bold;
+color:rgb(255, 89, 89);
 }
 .review blockquote{
-background:#FFF0EC;
-border-left:.35rem solid salmon;
+background:#FFF8E1;
+border-left:.35rem solid gold;
 }
-.review blockquote p::before {
-content: "Review: ";
-font-weight: bold;
+.review blockquote p:first-child::before {
+  content: "Review: ";
+  font-weight: bold;
+  color:rgb(166, 144, 19);;
+}
+
+div.learning {
+  background-color: darkblue;
+  padding-top: .4rem;
+  font-family: "Taviraj", Georgia, serif;
+  font-size: 1.5rem;
+  border-radius: 4px;
+}
+
+div.learning p:first-child{
+  color:lightblue;
+  font-weight: bold;
+  text-align: center;
+  margin-bottom: .5rem;
+}
+
+.learning blockquote{
+  font-size: 1rem;
+  margin-top:0;
+  font-family: "Roboto", "Helvetica Neue", Arial, sans-serif;;
+}
+
+.objectives blockquote{
+
+  background:#E3EDF7;
+  border-left:.35rem solid darkblue;
+  border-right:.35rem solid darkblue;
+  border-bottom:.35rem solid darkblue;
+  border-radius:4px;
+}
+.objectives blockquote p:first-child::before {
+  content: "After completing this lesson, the successful student will be able to";
+  font-weight: bold;
+  color:darkblue;
+}
+.objectives blockquote p:first-child {
+  font-weight: bold;
+  color:darkblue;
+  
+  text-align: left;
 }
 
 .ai-conversation blockquote{
@@ -627,7 +659,8 @@ color:#fbbf24;
 color:#94a3b8;
 font-style:italic;
 }
-table.blog{
+
+div.table table{
 display:block;
 width:max-content;
 max-width:100%;
@@ -641,24 +674,24 @@ border-radius:var(--radius-md);
 box-shadow:var(--shadow-sm);
 background:var(--surface);
 }
-th.blog,
-td.blog{
+div.table th,
+div.table td{
 padding:.72rem .85rem;
 border-bottom:1px solid var(--border);
 text-align:left;
 vertical-align:top;
-white-space:nowrap;
+
 }
-th.blog{
+div.table th{
 font-size:.86rem;
 font-weight:700;
 color:var(--heading);
 background:var(--surface-soft);
 }
-tr.blog:last-child td{
+div.table tr.blog:last-child td{
 border-bottom:0;
 }
-tr.blog:nth-child(even) td{
+div.table tr:nth-child(even) td{
 background:#f8fafc;
 }
 .monaco {

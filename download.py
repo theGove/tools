@@ -1,3 +1,4 @@
+import sys
 import requests
 import os
 import json
@@ -10,14 +11,21 @@ from utils import getJsonFile
 #   get's the current copy of the blog posts to serve as the local skeleton for the working copy of the book.
 #   Be in the root of the book to publish and run
 #   python ../tools/download.py
+#
+#   pass a chapter number to only refetch that chapter's file
+#   python ../tools/download.py 3
 
 
 
-def download():
+def download(chapter=None):
     config =  getJsonFile('config.json')
     if config=="failed":
         return
     print("config",config)
+
+    if chapter is not None:
+        downloadChapter(config, chapter)
+        return
 
     # get the toc
     urlPrefix="http://"+config['blogUrl']+"/2000/02/"
@@ -26,17 +34,32 @@ def download():
     toc = saveOnePage(url)
 
     # fetch all pages from toc
-    doc = BeautifulSoup(toc, 'html.parser')    
-    element = doc.find("div", class_="book-chapters") 
+    doc = BeautifulSoup(toc, 'html.parser')
+    element = doc.find("div", class_="book-chapters")
     print(element)
     for a in element.find_all('a'):
       url = a['href']
       print (url)
-      saveOnePage(urlPrefix + url)  
+      saveOnePage(urlPrefix + url)
 
     #fetch all feeds files
     url="http://"+config['blogUrl']+"/feeds/posts/default/-/data?alt=json"
     saveDataFiles(url)
+
+
+def downloadChapter(config, chapter):
+    # the chapter number is only ever used as a label on the chapter's own post,
+    # so a label search is guaranteed to return exactly that one post.
+    labelUrl = "http://"+config['blogUrl']+"/feeds/posts/default/-/"+str(chapter)+"?alt=json&max-results=1"
+    print(labelUrl)
+    response = requests.get(labelUrl).json()
+    entries = response['feed'].get('entry', [])
+    if not entries:
+        print("No post found labeled", chapter)
+        return
+    url = next(l['href'] for l in entries[0]['link'] if l['rel'] == 'alternate')
+    print(url)
+    saveOnePage(url)
 
 def saveDataFiles(url):
     os.makedirs(os.path.join("local","feeds"), exist_ok=True)
@@ -67,6 +90,7 @@ def saveOnePage(url):
 
 
 def main():
-    download()
+    chapter = sys.argv[1] if len(sys.argv) > 1 else None
+    download(chapter)
 if __name__=="__main__":
-    main()        
+    main()

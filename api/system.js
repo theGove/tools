@@ -10,7 +10,7 @@ function searchBook(){
     return response.json();
   })
   .then(data => {
-    console.log(data); 
+    //console.log(data); 
     tag("search-results").replaceChildren()
     if(data.feed.entry){
       for(entry of data.feed.entry){
@@ -35,7 +35,7 @@ function findLink(links){
   }
 }
 function buildChapterSearchResult(entry){
-      console.log(entry)
+      //console.log(entry)
       const tempDiv = document.createElement("div");
       tempDiv.innerHTML=entry.content.$t
       
@@ -111,6 +111,12 @@ function findPhraseWithContext(text, phrase, contextCount = 10) {
 }
 
 function init(){
+
+    // bring in code that runs locally for debugging and testing
+    if(location.hostname.startsWith("127") || location.host.toLowerCase().startsWith("localhost")){
+        loadCrossOrigin(`${location.origin}/tools/localCode/dev.js`)
+    }    
+
     setVariables()
     getToc() 
     configureBook()
@@ -358,7 +364,7 @@ function navigate(direction){
 
 
     path[3]=nextNumber+"."+path.pop()
-    console.log("I'm navigating",path.join("/"))
+    //console.log("I'm navigating",path.join("/"))
     window.location.href=path.join("/")
 
     return
@@ -411,8 +417,8 @@ function hideMenu(){
 }
 
 function copyThisPrompt(event){
-  console.log("at copyThisPrompt")  
-  showToast("I'm juicing!")
+  //console.log("at copyThisPrompt")  
+  //showToast("I'm juicing!")
   const prior = event.target.previousElementSibling;
   if (!prior) return;
 
@@ -428,8 +434,8 @@ function getAiHelpPrompt(){
     text.push("as we interact, this gives you a sense for what I've learned and what is coming in my course of study, so you can give me appropriate help.  I'll favor responses that rely heavily on the content I've already covered, but if you do need to refer to something I have not year learned, I prefer that you use ideas that are coming in this course of study. Only refer to content outside of this course of study when absolutely necessary to provide a reasonable answer.  Anytime you are using concepts that I have not already learned, be sure to give me the option for a more detailed explanation.")
 
     navigator.clipboard.writeText(text.join("\n"))
-      .then(() => console.log("Copied!"))
-      .catch(err => console.error("Failed:", err));
+      .then(() =>console.log("Copied!"))
+      .catch(err =>console.error("Failed:", err));
 }
 
 async function getToc(){
@@ -785,7 +791,6 @@ function playAudio(td){
 
 function makePrompt(evt,props){
   if(evt){
-     console.log("event:", evt, props)
     let elem = evt.target
     const html=[]
     while(elem.tagName!=="H" + props.level){
@@ -795,8 +800,8 @@ function makePrompt(evt,props){
       }
       html.unshift(elem.outerHTML)
     }
-    console.log("fount it:", elem.tagName) 
-    console.log(html)
+    //console.log("fount it:", elem.tagName) 
+    //console.log(html)
     const turndownService = new TurndownService();
     const prompt = ["I'm learning about javascript.  Please help me understand it by giving me three options: Walk me through the main points, Give me different examples covering the same content, or quizzing me on the main points.  Here's the text of the section:"]
     prompt.push(turndownService.turndown(html.join("")))
@@ -805,10 +810,36 @@ function makePrompt(evt,props){
     prompt.push(tag("toc").innerText.split("\n\n\n").join("\n").split("\n\n").join("\n"))
 
 
-    console.log()
     navigator.clipboard.writeText(prompt.join("\n\n"))
-      .then(() => console.log("Copied!"))
-      .catch(err => console.error("Failed:", err));
+      .then(() =>console.log("Copied!"))
+      .catch(err =>console.error("Failed:", err));
   }
 
 }
+
+
+    
+// gove thiks this dead wood.  no sure so commenting just in case    
+    // async function loadModule(label){// get the first post of a specified label and load the code
+    //   const code = await getPage(label)
+    //   injectJs(code)
+    // }
+    
+    // async function getPage(label){//get the first post with the specified label.
+        
+    //     if(localhost){
+    //       const url=`/tools/api/${label}.js`
+    //       const response = await fetch(url)
+    //       const code = await response.text()  
+    //       return code
+    //     }else{
+    //       const url=`${location.origin}/feeds/posts/default/-/${label}?alt=json`
+    //       const response = await fetch(url)
+    //       const page = await response.json()
+    //       return page.feed.entry[0].content.$t
+    //     }
+    // }    
+
+
+
+init()

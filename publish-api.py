@@ -131,20 +131,11 @@ def getIdsFromFeed(file_name, version):
 
     # fetch the post labeled with both the api name and the version so we can get the blogId and postId
     url = BLOG_URL + "feeds/posts/default/-/" + file_name + "/" + version + "?alt=json"
-    # print(url)
+    print(url)
     blogData = requests.get(url).json()
-    for item in blogData["feed"].get("entry", []):
-      for link in item["link"]:
-        filename = link["href"].split("/").pop()
-        if filename ==file_name + ".html":
-            id=item["id"]["$t"]
-            blogId = id.split("blog-")[1]
-            postId = blogId.split(".post-")[1]
-            blogId = blogId.split(".post-")[0]
-            #print(blogId, postId)
-            return blogId, postId
-
-    return None
+    blogId = blogData["feed"].get("id").get("$t").split("-")[1]
+    postId = blogData["feed"].get("entry")[0].get("id").get("$t").split("-").pop()
+    return blogId, postId
 
 
 def main():
