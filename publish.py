@@ -17,6 +17,7 @@ from utils import html_content_equals
 from utils import list_numeric_chapter_bases
 from utils import load_chapter_html_and_title
 from utils import local_chapter_html
+from utils import local_chapter_source_html
 from utils import remote_html_by_chapter
 from utils import terminal_bold
 
@@ -78,57 +79,6 @@ def process(file_name):
     return post_to_publish_api(payload)
 
 
-def process_config():
-    """Push the raw contents of config.json to the post labeled "book"."""
-    with open("config.json", 'r', encoding='utf-8') as file:
-        file_contents = file.read()
-
-    blogId, postId = getIdsFromFeed("book")
-
-    raw_path = os.path.join(os.path.dirname(__file__), '..', 'tools', 'deploymentId.txt')
-    file_path = os.path.abspath(raw_path)
-    with open(file_path, 'r') as f:
-        deploymentId = f.read()
-
-    url = 'https://script.google.com/macros/s/'+deploymentId+'/exec'
-    payload = {'mode': 'publish',
-               'content':file_contents,
-               'blogId':blogId,
-               'postId':postId
-               }
-
-    print("Updating")
-    print("     Post: book")
-    print("  Blog ID:",blogId)
-    print("  Post ID:",postId)
-
-    response = requests.post(url, json = payload).json()
-
-    if "error" in response:
-        print("============================== Update Failed ==============================")
-        pprint.pprint(response, indent=4, sort_dicts=False)
-    else:
-        print("Success.")
-
-
-def wants_config_publish(argv):
-    """True when a "config" (or "config.json") arg was passed on the CLI."""
-    return any(os.path.basename(arg).lower() in ("config", "config.json") for arg in argv[1:])
-
-
-def confirm_config_publish():
-    """Ask the user to confirm before publishing config.json to the "book" post."""
-    print()
-    print("Will publish contents of config.json to the post labeled 'book'.")
-    print()
-    answer = input("Type 'yes' to continue: ").strip().lower()
-    if answer != "yes":
-        print("Skipped — config.json not published.")
-        return False
-    print()
-    return True
-
-
 def getIdsFromFeed(file_name):
     """
     Resolve blog and post ids for a labeled post whose HTML slug matches file_name.
@@ -157,33 +107,6 @@ def getIdsFromFeed(file_name):
                 post_id = blog_id.split(".post-")[1]
                 blog_id = blog_id.split(".post-")[0]
                 return blog_id, post_id
-
-
-def fetch_feed_entry_by_slug(blog_url, slug):
-    """
-    Return the first feed entry whose alternate link ends with slug.html.
-    @param {string} blog_url - Hostname from config, e.g. book1007.blogspot.com.
-    @param {string} slug - Post filename without .html (e.g. 'book').
-    """
-    url = f"https://{blog_url}/feeds/posts/default/-/{slug}?alt=json"
-    response = requests.get(url)
-    response.raise_for_status()
-    entries = response.json().get("feed", {}).get("entry", [])
-    target = slug + ".html"
-    for entry in entries:
-        for link in entry.get("link", []):
-            if link.get("rel") == "alternate" and link.get("href", "").endswith(target):
-                return entry
-
-    # Some books omit the label on book.html — fall back to scanning the full feed.
-    url = f"https://{blog_url}/feeds/posts/default?alt=json&max-results=500"
-    response = requests.get(url)
-    response.raise_for_status()
-    for entry in response.json().get("feed", {}).get("entry", []):
-        for link in entry.get("link", []):
-            if link.get("rel") == "alternate" and link.get("href", "").endswith(target):
-                return entry
-    return None
 
 
 def chapter_title_for_toc(html, chapter_base):
@@ -217,17 +140,13 @@ def sections_from_chapter_html(html):
 
 def build_toc_html(book_info, chapters):
     """
-    Build the toc post HTML (hidden JSON + visible chapter list).
-    @param {dict} book_info - Parsed book.json from the blog book post.
+    Build the toc post HTML (visible book title, author and chapter list).
+    @param {dict} book_info - Parsed config.json from the book's home directory.
     @param {list<dict>} chapters - TOC chapter objects with label, id, text, sections.
     """
-    data = {"chapters": chapters, "bookInfo": book_info}
     authors = book_info.get("authors") or []
     author_line = " and ".join(authors)
     lines = [
-        '<div style="display:none" id="toc-json">',
-        json.dumps(data, indent=2, ensure_ascii=False),
-        "</div     >",
         f'<div class="book-title">{book_info.get("title", "")}</div>',
         f'<div class="book-author">{author_line}</div>',
         '<div class="book-toc">',
@@ -242,6 +161,17 @@ def build_toc_html(book_info, chapters):
     return "\n".join(lines)
 
 
+def build_book_json(book_info, chapters):
+    """
+    Build the pure-JSON content for the book post (bookInfo + chapters TOC data).
+    @param {dict} book_info - Parsed config.json from the book's home directory.
+    @param {list<dict>} chapters - TOC chapter objects with label, id, text, sections.
+    """
+    book_info["chapters"]=chapters
+    #data = {"chapters": chapters, "bookInfo": book_info}
+    return json.dumps(book_info, indent=2, ensure_ascii=False)
+
+
 def update_toc():
     """
     Rebuild the blog TOC from local chapter markdown and publish the toc post.
@@ -252,13 +182,7 @@ def update_toc():
         sys.exit(1)
 
     print("\nUpdating table of contents...")
-    book_entry = fetch_feed_entry_by_slug(config["blogUrl"], "book")
-    if book_entry is None:
-        print("Could not find book.html on the blog — TOC not updated.")
-        return False
-
-    book_info = json.loads(book_entry.get("content", {}).get("$t", "{}"))
-    chapter_label = book_info.get("chapterLabel") or "Chapter"
+    chapter_label = config.get("chapterLabel") or "Chapter"
 
     chapter_bases = list_numeric_chapter_bases()
     if not chapter_bases:
@@ -267,7 +191,7 @@ def update_toc():
 
     chapters = []
     for base in chapter_bases:
-        html = local_chapter_html(base)
+        html = local_chapter_source_html(base)
         chapters.append(
             {
                 "label": f"{chapter_label} {base}",
@@ -277,7 +201,7 @@ def update_toc():
             }
         )
 
-    toc_html = build_toc_html(book_info, chapters)
+    toc_html = build_toc_html(config, chapters)
     blog_id, post_id = getIdsFromFeed("toc")
     if not blog_id or not post_id:
         print("Could not resolve toc post ids — TOC not updated.")
@@ -288,7 +212,7 @@ def update_toc():
     print("  Post ID:", post_id)
     print(f"  Chapters: {len(chapters)}")
 
-    return post_to_publish_api(
+    toc_updated = post_to_publish_api(
         {
             "mode": "publish",
             "content": toc_html,
@@ -296,6 +220,27 @@ def update_toc():
             "postId": post_id,
         }
     )
+
+    book_json = build_book_json(config, chapters)
+    book_blog_id, book_post_id = getIdsFromFeed("book")
+    if not book_blog_id or not book_post_id:
+        print("Could not resolve book post ids — book post not updated.")
+        return toc_updated
+
+    print("Updating book")
+    print("  Blog ID:", book_blog_id)
+    print("  Post ID:", book_post_id)
+
+    book_updated = post_to_publish_api(
+        {
+            "mode": "publish",
+            "content": book_json,
+            "blogId": book_blog_id,
+            "postId": book_post_id,
+        }
+    )
+
+    return toc_updated and book_updated
 
 
 def changed_chapters(chapter_bases, remote_by_chapter):
@@ -434,10 +379,6 @@ def main():
         return
 
     if len(sys.argv) > 1:
-        if wants_config_publish(sys.argv) and confirm_config_publish():
-            print("\n\n\n")
-            process_config()
-            print("\n\n\n")
         chapters = chapters_from_argv(sys.argv)
         if not chapters:
             print("No chapters to publish.")
@@ -451,10 +392,6 @@ def main():
             bulk_glob=is_shell_glob_star(sys.argv) and len(chapters) > 1,
         )
     else:
-        if confirm_config_publish():
-            print("\n\n\n")
-            process_config()
-            print("\n\n\n")
         chapters = discover_changed_chapters()
         if not chapters:
             print("Nothing to publish — all chapters match the blog.")

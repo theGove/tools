@@ -1,5 +1,7 @@
-const pageData={}
+let bookInfo=null
+const pageData={}// probably should integrate into book data
 let  variables={}
+
 
 function searchBook(){
   fetch(`/feeds/posts/default?alt=json&label=chapter&v=2&orderby=relevance&max-results=100&q=label%3Achapter+${encodeURIComponent(tag("search").value)}&start-index=1&rewriteforssl=true`)
@@ -113,12 +115,23 @@ function findPhraseWithContext(text, phrase, contextCount = 10) {
 function init(){
 
     // bring in code that runs locally for debugging and testing
-    if(location.hostname.startsWith("127") || location.host.toLowerCase().startsWith("localhost")){
+    if(location.hostname.startsWith("127.") || location.host.toLowerCase().startsWith("localhost")){
         loadCrossOrigin(`${location.origin}/tools/localCode/dev.js`)
+    }else{
+        // bring in the book info from the book post
+        loadCrossOrigin(`${origin}/feeds/posts/default/-/book?alt=json-in-script&max-results=1&callback=initialize`); 
     }    
 
+}
+
+function initialize(bookInfoFeed){
+
+    bookInfo = JSON.parse(bookInfoFeed.feed.entry[0].content.$t)
+    console.log("bookInfo",bookInfo)
+    
+
     setVariables()
-    getToc() 
+    buildMenu() 
     configureBook()
     
     // set up searching the full content of book
@@ -427,42 +440,22 @@ function copyThisPrompt(event){
     .catch(console.error);
 }
 
-function getAiHelpPrompt(){
-    const text=["I'm currently a student studying this book:"]
-    text.push(JSON.stringify(window.availabooksToc))
-    text.push(`I'm currently studying chapter ${window.availabooksChapter}.`)
-    text.push("as we interact, this gives you a sense for what I've learned and what is coming in my course of study, so you can give me appropriate help.  I'll favor responses that rely heavily on the content I've already covered, but if you do need to refer to something I have not year learned, I prefer that you use ideas that are coming in this course of study. Only refer to content outside of this course of study when absolutely necessary to provide a reasonable answer.  Anytime you are using concepts that I have not already learned, be sure to give me the option for a more detailed explanation.")
 
-    navigator.clipboard.writeText(text.join("\n"))
-      .then(() =>console.log("Copied!"))
-      .catch(err =>console.error("Failed:", err));
-}
+function buildMenu(){
 
-async function getToc(){
-    let url=window.location  
-    path = url.pathname.split("/")
-    path.pop()
-    path.push("toc.html")
-    path.unshift(url.origin)
-    url=path.join("/")
 
-    const response = await fetch(url);
-    if (!response.ok) {
-        throw new Error(`Response status: ${response.status}`);
-    }
-
-    const text = await response.text();
-    const toc=JSON.parse(text.split('<div style="display:none" id="toc-json">')[1].split("</div     >")[0])
-    tag("book-title").getElementsByTagName("a")[0].replaceChildren(toc.bookInfo.title)
-    window.availabooksToc=toc
-    const  html=[] //`<div id="toc-json" style="display:none">${JSON.stringify(toc)}</div>`
+    const  html=[`
+        <div class='menu-header'><span class='material-symbols-outlined menu-button' onclick='hideMenu()'>close</span><span id='book-title'><a href='toc.html'>${bookInfo.title}</a></span></div>
+        <div id='menu-content'>
+        <div id='toc'>
+    `]
     
-    for(const chapter of toc.chapters){
+    for(const chapter of bookInfo.chapters){
         if(chapter.sections){
             let chapterNumber = window.location.pathname.split("/").pop().split(".")[0]
             if(chapterNumber === chapter.id){
                 html.push("<details open>")
-                window.availabooksChapter=chapterNumber
+                bookInfo.currentChapter=chapterNumber
             }else{
                 html.push("<details>")
             }
@@ -477,9 +470,71 @@ async function getToc(){
         }        
         window.lastChapterId=parseInt(chapter.id)
     }
-    tag("toc").innerHTML=html.join("\n")
+
+    html.push(`</div>
+        <div id='tools'>
+            Text Size: 
+            <span class='material-symbols-outlined tool' onclick='fontSize(.1)'>text_increase</span>
+            <span class='material-symbols-outlined tool' onclick='fontSize(-.1)'>text_decrease</span>
+            <span class='material-symbols-outlined tool' onclick='fontSize()'>rotate_auto</span>
+        </div>  
+        <div id='search-div'>
+        <h6>Search Book</h6>  
+        <input id='search' placeholder='search book'/><span class='material-symbols-outlined tool' id='search-button'>search</span></div>
+        <div id='search-results'/>
+        <div id='ai-tools'>
+            <details>
+            <summary>Tools available in this book</summary>
+            <div>
+    `)
+     // make a place to receive the tools here 
+     console.log("book info tools", bookInfo.tools)
+     for(const tool of bookInfo.tools){
+        console.log(tool)
+        html.push(`<div id="menu-tool-${tool}"></div>`)
+
+     } 
+     
+
+
+
+    html.push(`<div/>
+            </details>                
+        </div> 
+        </div>  
+    `)
+
+    //get the tools
+    tag("menu").innerHTML=html.join("\n")
+     for(const tool of bookInfo.tools){
+        console.log(tool)
+        const toolUrl=`https://availabooks-system.blogspot.com/feeds/posts/default/-/${tool}?alt=json-in-script&max-results=1&callback=loadMenuTool`
+        loadCrossOrigin(toolUrl); 
+
+     } 
+         
 
 }
+
+function loadMenuTool(x){
+    const toolId="menu-tool-" + x.feed.entry[0].title.$t
+    const parts=x.feed.entry[0].content.$t.split("==================================================")
+    console.log("loading menu tool", parts[0])
+   
+    // load the css
+    const style = document.createElement('style');
+    style.textContent = parts[0]
+    document.head.appendChild(style);
+
+    //load the JS
+     injectJs(parts[1])
+
+    // place the HTML
+    console.log("tryoing to palce", toolId)
+    tag(toolId).innerHTML =   parts[2].trim()
+    
+}
+
 
 
 function getChaptSections(obj, html) { 

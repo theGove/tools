@@ -152,16 +152,24 @@ def remote_html_by_chapter(entries):
     return by_chapter
 
 
-def local_chapter_html(chapter_base):
+def local_chapter_source_html(chapter_base):
     """
-    Convert a local markdown chapter to HTML (same path publish uses).
+    Convert a local markdown chapter to HTML without AI-conversation preprocessing.
+    Used where only the title/headings matter (e.g. TOC generation).
     @param {string} chapter_base - Chapter id without extension, e.g. '1'.
     """
     md_path = chapter_base + ".md"
     with open(md_path, "r", encoding="utf-8") as file:
         file_contents = file.read()
-    html = processDocument(file_contents, chapter_base)
-    return runPreProcess(html)
+    return processDocument(file_contents, chapter_base)
+
+
+def local_chapter_html(chapter_base):
+    """
+    Convert a local markdown chapter to HTML (same path publish uses).
+    @param {string} chapter_base - Chapter id without extension, e.g. '1'.
+    """
+    return runPreProcess(local_chapter_source_html(chapter_base))
 
 def runPreProcess(html):
     print ("running preprocesses")
