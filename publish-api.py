@@ -1,4 +1,5 @@
 from fileinput import filename
+import argparse
 import requests
 import sys
 import pprint
@@ -8,14 +9,26 @@ from utils import processDocument
 from utils import getTitle
 from utils import getPreProcessArgs
 
-#   Publishes an api file to the availabooks-system blog
-#    Be in the root of the book to publish and run
-#   python ../tools/publish-api.py <version> system monaco
-#   where version is the target to publish to (e.g. dev, stable), system refers to /tools/api/system.js and monaco is the next api to publish, /tools/api/monaco.js.  You can publish as many apis as you want in one go by listing them all in the command.  Just make sure to list them in order so that the numbering of the chapters is correct on the blog.
-#   If only one argument is given, it is treated as a file name and version defaults to "dev":
-#   python ../tools/publish-api.py monaco
-
 BLOG_URL = "https://availabooks-system.blogspot.com/"
+
+HELP_EPILOG = """
+Publishes API files from tools/api/ to the availabooks-system blog.
+
+Run from the root of the book you are publishing.
+
+Arguments:
+  With one argument, it is treated as an API file name and version defaults to "dev".
+  With two or more arguments, the first is the version (e.g. dev, stable) and the
+  rest are API file names (without path; extension optional if unambiguous).
+
+List multiple APIs in the order you want chapters numbered on the blog.
+
+Examples:
+  python ../tools/publish-api.py monaco
+  python ../tools/publish-api.py system
+  python ../tools/publish-api.py dev system monaco
+  python ../tools/publish-api.py stable auth
+"""
 
 
 def process(file_name, version):
@@ -133,21 +146,37 @@ def getIdsFromFeed(file_name, version):
     url = BLOG_URL + "feeds/posts/default/-/" + file_name + "/" + version + "?alt=json"
     print(url)
     blogData = requests.get(url).json()
+    entries = blogData["feed"].get("entry")
+    if not entries:
+        return None
+
     blogId = blogData["feed"].get("id").get("$t").split("-")[1]
-    postId = blogData["feed"].get("entry")[0].get("id").get("$t").split("-").pop()
+    postId = entries[0].get("id").get("$t").split("-").pop()
     return blogId, postId
 
 
 def main():
-    if len(sys.argv) == 2:
+    parser = argparse.ArgumentParser(
+        description="Publish API files to the availabooks-system blog.",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog=HELP_EPILOG,
+    )
+    parser.add_argument(
+        "args",
+        nargs="+",
+        metavar="ARG",
+        help="API file name(s), optionally preceded by version (dev, stable, ...). "
+             "One arg = file name (version defaults to dev); "
+             "two or more = version then file names.",
+    )
+    parsed = parser.parse_args()
+
+    if len(parsed.args) == 1:
         version = "dev"
-        file_names = sys.argv[1:]
-    elif len(sys.argv) > 2:
-        version = sys.argv[1]
-        file_names = sys.argv[2:]
+        file_names = parsed.args
     else:
-        print("must provide the name of at least one api file, optionally preceded by the version to publish to (dev, stable, etc); defaults to dev")
-        return
+        version = parsed.args[0]
+        file_names = parsed.args[1:]
 
     for file_name in file_names:
         print("\n\n\n")
@@ -155,4 +184,4 @@ def main():
     print("\n\n\n")
 
 if __name__=="__main__":
-    main()        
+    main()
