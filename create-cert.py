@@ -22,7 +22,7 @@ from pathlib import Path
 HOSTS = (
     "localhost",
     "127.0.0.1",
-    "vite.availabooks.com",
+    "dev.availabooks.com",
     "local.availabooks.com",
 )
 
@@ -134,7 +134,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description=(
             "Create local TLS certs with mkcert for localhost, 127.0.0.1, "
-            "vite.availabooks.com, and local.availabooks.com."
+            "dev.availabooks.com, and local.availabooks.com."
         )
     )
     parser.add_argument(
