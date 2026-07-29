@@ -3,7 +3,7 @@
  * Source: tools/modules-builder/src/modules/auth/
  * Rebuild: cd tools/modules-builder && npm run build -- auth
  */
-(function(Y){"use strict";let y=Object.getPrototypeOf,O,M,f,S,ee={isConnected:1},ye=1e3,N,W={},ke=y(ee),te=y(y),P,ae=(e,t,r,a)=>(e??(a?setTimeout(r,a):queueMicrotask(r),new Set)).add(t),ne=(e,t,r)=>{let a=f;f=t;try{return e(r)}catch(i){return console.error(i),r}finally{f=a}},R=e=>e.filter(t=>{var r;return(r=t._dom)==null?void 0:r.isConnected}),re=e=>N=ae(N,e,()=>{for(let t of N)t._bindings=R(t._bindings),t._listeners=R(t._listeners);N=P},ye),q={get val(){var e;return(e=f==null?void 0:f._getters)==null||e.add(this),this.rawVal},get oldVal(){var e;return(e=f==null?void 0:f._getters)==null||e.add(this),this._oldVal},set val(e){var t;(t=f==null?void 0:f._setters)==null||t.add(this),e!==this.rawVal&&(this.rawVal=e,this._bindings.length+this._listeners.length?(M==null||M.add(this),O=ae(O,this,_e)):this._oldVal=e)}},se=e=>({__proto__:q,rawVal:e,_oldVal:e,_bindings:[],_listeners:[]}),z=(e,t)=>{let r={_getters:new Set,_setters:new Set},a={f:e},i=S;S=[];let c=ne(e,r,t);c=(c??document).nodeType?c:new Text(c);for(let d of r._getters)r._setters.has(d)||(re(d),d._bindings.push(a));for(let d of S)d._dom=c;return S=i,a._dom=c},K=(e,t=se(),r)=>{let a={_getters:new Set,_setters:new Set},i={f:e,s:t};i._dom=r??(S==null?void 0:S.push(i))??ee,t.val=ne(e,a,t.rawVal);for(let c of a._getters)a._setters.has(c)||(re(c),c._listeners.push(i));return t},oe=(e,...t)=>{for(let r of t.flat(1/0)){let a=y(r??0),i=a===q?z(()=>r.val):a===te?z(r):r;i!=P&&e.append(i)}return e},ie=(e,t,...r)=>{var A,V,L;let[{is:a,...i},...c]=y(r[0]??0)===ke?r:[{},...r],d=e?document.createElementNS(e,t,{is:a}):document.createElement(t,{is:a});for(let[b,w]of Object.entries(i)){let T=p=>p&&(Object.getOwnPropertyDescriptor(p,b)??T(y(p))),k=!e&&!a&&!t.includes("-")?W[V=t+","+b]??(W[V]=((A=T(y(d)))==null?void 0:A.set)??0):(L=T(y(d)))==null?void 0:L.set,E=b.startsWith("on"),_=E?(p,g)=>{let C=b.slice(2);d.removeEventListener(C,g),d.addEventListener(C,p)}:k?k.bind(d):d.setAttribute.bind(d,b),m=y(w??0);E||m===te&&(w=K(w),m=q),m===q?z(()=>(_(w.val,w._oldVal),d)):_(w)}return oe(d,c)},le=e=>({get:(t,r)=>ie.bind(P,e,r)}),de=(e,t)=>t?t!==e&&e.replaceWith(t):e.remove(),_e=()=>{let e=100,t=[...O].filter(a=>a.rawVal!==a._oldVal);do{M=new Set;for(let a of new Set(t.flatMap(i=>i._listeners=R(i._listeners))))K(a.f,a.s,a._dom),a._dom=P}while(--e&&(t=[...M]).length);let r=[...O].filter(a=>a.rawVal!==a._oldVal);O=P;for(let a of new Set(r.flatMap(i=>i._bindings=R(i._bindings))))de(a._dom,z(a.f,a._dom)),a._dom=P;for(let a of r)a._oldVal=a.rawVal};const u={tags:new Proxy(e=>new Proxy(ie,le(e)),le()),hydrate:(e,t)=>de(e,z(t,e)),add:oe,state:se,derive:K},{button:v,dd:U,div:l,dl:Se,dt:D,form:Q,h2:ce,input:H,label:B,p:x,pre:xe,span:j}=u.tags,ue="data-auth-mounted",he="data-auth-styles",Ae="http://localhost:2732",Te=`
+(function(z){"use strict";let h=Object.getPrototypeOf,v,b,c,f,$={isConnected:1},at=1e3,A,M={},rt=h($),I=h(h),m,H=(t,e,r,a)=>(t??(a?setTimeout(r,a):queueMicrotask(r),new Set)).add(e),q=(t,e,r)=>{let a=c;c=e;try{return t(r)}catch(s){return console.error(s),r}finally{c=a}},T=t=>t.filter(e=>{var r;return(r=e._dom)==null?void 0:r.isConnected}),D=t=>A=H(A,t,()=>{for(let e of A)e._bindings=T(e._bindings),e._listeners=T(e._listeners);A=m},at),P={get val(){var t;return(t=c==null?void 0:c._getters)==null||t.add(this),this.rawVal},get oldVal(){var t;return(t=c==null?void 0:c._getters)==null||t.add(this),this._oldVal},set val(t){var e;(e=c==null?void 0:c._setters)==null||e.add(this),t!==this.rawVal&&(this.rawVal=t,this._bindings.length+this._listeners.length?(b==null||b.add(this),v=H(v,this,nt)):this._oldVal=t)}},Y=t=>({__proto__:P,rawVal:t,_oldVal:t,_bindings:[],_listeners:[]}),w=(t,e)=>{let r={_getters:new Set,_setters:new Set},a={f:t},s=f;f=[];let i=q(t,r,e);i=(i??document).nodeType?i:new Text(i);for(let l of r._getters)r._setters.has(l)||(D(l),l._bindings.push(a));for(let l of f)l._dom=i;return f=s,a._dom=i},j=(t,e=Y(),r)=>{let a={_getters:new Set,_setters:new Set},s={f:t,s:e};s._dom=r??(f==null?void 0:f.push(s))??$,e.val=q(t,a,e.rawVal);for(let i of a._getters)a._setters.has(i)||(D(i),i._listeners.push(s));return e},F=(t,...e)=>{for(let r of e.flat(1/0)){let a=h(r??0),s=a===P?w(()=>r.val):a===I?w(r):r;s!=m&&t.append(s)}return t},G=(t,e,...r)=>{var C,k,L;let[{is:a,...s},...i]=h(r[0]??0)===rt?r:[{},...r],l=t?document.createElementNS(t,e,{is:a}):document.createElement(e,{is:a});for(let[g,n]of Object.entries(s)){let o=x=>x&&(Object.getOwnPropertyDescriptor(x,g)??o(h(x))),d=!t&&!a&&!e.includes("-")?M[k=e+","+g]??(M[k]=((C=o(h(l)))==null?void 0:C.set)??0):(L=o(h(l)))==null?void 0:L.set,S=g.startsWith("on"),tt=S?(x,pt)=>{let et=g.slice(2);l.removeEventListener(et,pt),l.addEventListener(et,x)}:d?d.bind(l):l.setAttribute.bind(l,g),U=h(n??0);S||U===I&&(n=j(n),U=P),U===P?w(()=>(tt(n.val,n._oldVal),l)):tt(n)}return F(l,i)},J=t=>({get:(e,r)=>G.bind(m,t,r)}),W=(t,e)=>e?e!==t&&t.replaceWith(e):t.remove(),nt=()=>{let t=100,e=[...v].filter(a=>a.rawVal!==a._oldVal);do{b=new Set;for(let a of new Set(e.flatMap(s=>s._listeners=T(s._listeners))))j(a.f,a.s,a._dom),a._dom=m}while(--t&&(e=[...b]).length);let r=[...v].filter(a=>a.rawVal!==a._oldVal);v=m;for(let a of new Set(r.flatMap(s=>s._bindings=T(s._bindings))))W(a._dom,w(a.f,a._dom)),a._dom=m;for(let a of r)a._oldVal=a.rawVal};const p={tags:new Proxy(t=>new Proxy(G,J(t)),J()),hydrate:(t,e)=>W(t,w(e,t)),add:F,state:Y,derive:j},{button:O,dd:E,div:u,dl:ot,dt:V,h2:B,p:y,pre:st,span:_}=p.tags,K="data-auth-mounted",Q="data-auth-styles",it="http://localhost:2732",lt=`
 @layer availabooks-auth {
   .auth {
     --auth-font: "Roboto", "Helvetica Neue", Arial, sans-serif;
@@ -84,8 +84,6 @@
   .auth .login[hidden],
   .auth .profile[hidden],
   .auth .status[hidden],
-  .auth .sign-in-form[hidden],
-  .auth .sign-in-message[hidden],
   .auth .raw[hidden] {
     display: none !important;
   }
@@ -96,71 +94,11 @@
     gap: 0.35rem;
   }
 
-  .auth .sign-in-form {
-    display: grid;
-    gap: 0.55rem;
-  }
-
-  .auth .field {
-    display: grid;
-    gap: 0.35rem;
-  }
-
-  .auth .sign-in-label {
-    margin: 0;
-    font-size: 0.78rem;
-    font-weight: 700;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    color: var(--auth-muted);
-  }
-
-  .auth .sign-in-input {
-    width: 100%;
-    box-sizing: border-box;
-    font: inherit;
-    padding: 0.6rem 0.85rem;
-    border: 1px solid var(--auth-border);
-    border-radius: var(--auth-radius-sm);
-    background: var(--auth-surface);
-    color: var(--auth-text);
-    box-shadow: var(--auth-shadow-sm);
-    outline: none;
-    transition: border-color 0.18s ease, box-shadow 0.18s ease;
-  }
-
-  .auth .sign-in-input:focus {
-    border-color: var(--auth-accent);
-    box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.13);
-  }
-
-  .auth .sign-in-hint {
-    margin: 0;
-    font-size: 0.92rem;
-    color: var(--auth-muted);
-  }
-
-  .auth .sign-in-message {
-    margin: 0;
-    font-size: 0.92rem;
-    color: var(--auth-muted);
-  }
-
-  .auth .sign-in-message.is-error {
-    color: var(--auth-danger);
-  }
-
   .auth .actions {
     display: flex;
     flex-wrap: wrap;
     gap: 0.55rem;
     align-items: center;
-  }
-
-  .auth .actions-stack {
-    display: grid;
-    gap: 0.55rem;
-    margin-top: 0.25rem;
   }
 
   .auth button {
@@ -205,21 +143,6 @@
     background: var(--auth-accent-soft);
     border-color: #bfdbfe;
     color: var(--auth-accent-strong);
-  }
-
-  .auth .btn-ghost {
-    background: transparent;
-    color: var(--auth-accent);
-    border: 0;
-    padding: 0.35rem 0;
-    font-weight: 500;
-    text-decoration: underline;
-    text-underline-offset: 0.15em;
-  }
-
-  .auth .btn-ghost:hover:not(:disabled) {
-    color: var(--auth-accent-strong);
-    transform: none;
   }
 
   .auth button:disabled {
@@ -328,6 +251,12 @@
     font-weight: 500;
   }
 
+  .auth .origin-hint {
+    margin-left: auto;
+    font-size: 0.78rem;
+    color: var(--auth-muted);
+  }
+
   .auth .raw {
     margin: 0;
     padding: 0.75rem 0.85rem;
@@ -343,4 +272,4 @@
     word-break: break-word;
   }
 }
-`;function Ee(){if(typeof document>"u"||document.head.querySelector(`style[${he}]`))return;const e=document.createElement("style");e.setAttribute(he,""),e.textContent=Te,document.head.append(e)}function Ce(e,t){for(const r of t){const a=e.getAttribute(r);if(a!=null&&a.trim()!=="")return a.trim()}return null}function Pe(e){return{origin:(Ce(e,["data-origin","origin"])??Ae).replace(/\/$/,"")}}function J(e,t){return e?new URL(t,`${e}/`).toString():t}async function F(e,t,r){const a=await fetch(J(e,t),{method:"POST",credentials:"include",headers:{"Content-Type":"application/json"},body:JSON.stringify(r)}),i=await a.json().catch(()=>({}));return{response:a,payload:i}}function Ve(){const e=document.createElement("div");return e.className="auth",e.setAttribute(ue,""),e}function X(e){const t=[e.firstName,e.lastName].filter(Boolean);return t.length>0?t.join(" "):e.email||e.id}function Oe(e){var t;return(t=e.roles)!=null&&t.length?e.roles:e.role?[e.role]:[]}function Me(e){const t=u.state("loading"),r=u.state("Checking…"),a=u.state(null),i=u.state(null),c=u.state("password"),d=u.state("credentials"),A=u.state(null),V=u.state(!1),L=u.state("Enter the 6-digit code we sent to your email."),b=u.state(!1),w=u.state(!1),T=u.state(!1),k=u.state(""),E=u.state(""),_=u.state("");let m={mode:"magic",email:"",pendingAuthenticationToken:null};const p=()=>{A.val=null,V.val=!1},g=(n,s=!1)=>{A.val=n,V.val=s},C=()=>{d.val="credentials",_.val="",p()},fe=n=>{d.val="code",_.val="",L.val=n.mode==="email_verification"?`Enter the verification code we sent to ${n.email}.`:`Enter the 6-digit code we sent to ${n.email}.`},$=(n,s)=>{t.val=n.kind,n.kind==="loading"?(r.val="Checking…",a.val=null):n.kind==="signed-out"?(r.val="Signed out",a.val=null,C()):n.kind==="signed-in"?(r.val=`Signed in as ${X(n.user)}`,a.val=n.user,p()):(r.val=n.message,a.val=null,C()),i.val=s===void 0?null:JSON.stringify(s,null,2)},G=async()=>{$({kind:"loading"});const n=J(e,"/api/auth/me");try{const s=await fetch(n,{credentials:"include"}),o=await s.json().catch(()=>null);if(!s.ok){$({kind:"error",message:`auth/me failed: HTTP ${s.status}`},o);return}const h=o==null?void 0:o.user;if(!h){$({kind:"signed-out"},o);return}$({kind:"signed-in",user:h},o)}catch(s){const o=s instanceof Error?s.message:String(s);$({kind:"error",message:`Could not reach Pro auth (${o}). Is the Pro server running at this origin? Books must be on *.availabooks.com (or localhost) so the session cookie is sent.`})}},ze=async()=>{const n=J(e,"/api/auth/protected");try{const s=await fetch(n,{credentials:"include"}),o=await s.json().catch(()=>null);i.val=JSON.stringify({status:s.status,body:o},null,2),s.ok||(t.val="error",r.val=`Protected route: HTTP ${s.status}`)}catch(s){const o=s instanceof Error?s.message:String(s);i.val=o,t.val="error",r.val="Protected route request failed"}},pe=async(n,s,o,h)=>{if(s.status==="email_verification_required"){m={mode:"email_verification",email:String(s.email||o),pendingAuthenticationToken:typeof s.pendingAuthenticationToken=="string"?s.pendingAuthenticationToken:null},fe(m),g("Check your email for a verification code.");return}if(!n.ok||s.status!=="authenticated"){g(String(s.message||s.error||h),!0);return}p(),E.val="",await G()},ve=async(n,s)=>{n.preventDefault();const o=k.val.trim(),h=E.val;if(!o){g("Enter your email address.",!0);return}if(!h){g("Enter your password.",!0);return}p(),b.val=!0;try{const{response:I,payload:Z}=await F(e,s,{email:o,password:h});await pe(I,Z,o,s==="/api/auth/password/sign-up"?"Could not create account.":"Invalid email or password.")}catch(I){const Z=I instanceof Error?I.message:String(I);g(`Could not sign in (${Z}).`,!0)}finally{b.val=!1}},je=async n=>{n.preventDefault();const s=k.val.trim();if(!s){g("Enter your email address.",!0);return}p(),w.val=!0;try{const{response:o,payload:h}=await F(e,"/api/auth/magic/send",{email:s});if(!o.ok||h.status!=="sent"){g(String(h.message||h.error||"Could not send code."),!0);return}m={mode:"magic",email:s,pendingAuthenticationToken:null},g("Code sent. Check your inbox."),fe(m)}catch(o){const h=o instanceof Error?o.message:String(o);g(`Could not send code (${h}).`,!0)}finally{w.val=!1}},Le=async n=>{n.preventDefault();const s=_.val.trim();if(!s){g("Enter the verification code.",!0);return}p(),T.val=!0;try{const{response:o,payload:h}=m.mode==="email_verification"?await F(e,"/api/auth/email-verification/verify",{code:s,pendingAuthenticationToken:m.pendingAuthenticationToken||""}):await F(e,"/api/auth/magic/verify",{email:m.email,code:s});await pe(o,h,m.email,"Invalid or expired code.")}catch(o){const h=o instanceof Error?o.message:String(o);g(`Could not verify code (${h}).`,!0)}finally{T.val=!1}},$e=()=>{m={mode:"magic",email:"",pendingAuthenticationToken:null},C()},be=n=>{c.val=n,C()},we=e||"(same origin)",Ie=async()=>{try{await fetch(J(e,"/api/auth/logout"),{method:"POST",credentials:"include",headers:{Accept:"application/json"}})}catch{}await G()},Ne=()=>c.val==="magic"?"Enter your email and we will send a one-time code.":"Sign in with your email and password, or create an account.";return G(),l({class:"panel"},x({class:()=>t.val==="error"?"status is-error":"status",hidden:()=>t.val==="signed-in"||t.val==="signed-out"},r),l({class:"profile",hidden:()=>t.val!=="signed-in"||a.val==null},l({class:"profile-header"},ce({class:"heading"},"Profile"),x({class:"lead"},"You are signed in to Pro.")),l({class:"profile-identity"},l({class:"avatar","aria-hidden":"true"},()=>(a.val?X(a.val):"?").slice(0,1).toUpperCase()),l(x({class:"profile-name"},()=>a.val?X(a.val):""),x({class:"profile-email"},()=>{var n;return((n=a.val)==null?void 0:n.email)||""}))),Se({class:"details"},l(D("User ID"),U(()=>{var n;return((n=a.val)==null?void 0:n.id)||"—"})),l(D("Organization"),U(()=>{var n;return((n=a.val)==null?void 0:n.organizationId)||"—"})),l(D("Role"),U(()=>{const n=a.val;if(!n)return"—";const s=Oe(n);return s.length?j({class:"chip-row"},...s.map(o=>j({class:"chip"},o))):"—"})),l(D("Permissions"),U(()=>{var s;const n=((s=a.val)==null?void 0:s.permissions)??[];return n.length?j({class:"chip-row"},...n.map(o=>j({class:"chip"},o))):"—"}))),l({class:"actions"},v({type:"button",class:"btn btn-secondary",onclick:()=>void Ie()},"Sign out"))),l({class:"login",hidden:()=>t.val==="signed-in"||t.val==="loading"},l({class:"login-header"},ce({class:"heading"},"Sign in"),x({class:"lead"},Ne)),Q({class:"sign-in-form",hidden:()=>d.val!=="credentials"||c.val!=="password",onsubmit:n=>void ve(n,"/api/auth/password/sign-in")},l({class:"field"},B({class:"sign-in-label",for:"auth-email"},"Email"),H({id:"auth-email",class:"sign-in-input",type:"email",name:"email",autocomplete:"email",required:!0,placeholder:"you@example.com",value:k,oninput:n=>{k.val=n.target.value}})),l({class:"field"},B({class:"sign-in-label",for:"auth-password"},"Password"),H({id:"auth-password",class:"sign-in-input",type:"password",name:"password",autocomplete:"current-password",required:!0,placeholder:"••••••••",value:E,oninput:n=>{E.val=n.target.value}})),l({class:"actions-stack"},v({type:"submit",class:"btn btn-primary",disabled:()=>b.val},"Sign in"),v({type:"button",class:"btn btn-secondary",disabled:()=>b.val,onclick:n=>void ve(n,"/api/auth/password/sign-up")},"Create account"),v({type:"button",class:"btn btn-ghost",onclick:()=>be("magic")},"Use a one-time code instead"))),Q({class:"sign-in-form",hidden:()=>d.val!=="credentials"||c.val!=="magic",onsubmit:je},l({class:"field"},B({class:"sign-in-label",for:"auth-magic-email"},"Email"),H({id:"auth-magic-email",class:"sign-in-input",type:"email",name:"email",autocomplete:"email",required:!0,placeholder:"you@example.com",value:k,oninput:n=>{k.val=n.target.value}})),l({class:"actions-stack"},v({type:"submit",class:"btn btn-primary",disabled:()=>w.val},"Send code"),v({type:"button",class:"btn btn-ghost",onclick:()=>be("password")},"Use password instead"))),Q({class:"sign-in-form",hidden:()=>d.val!=="code",onsubmit:Le},x({class:"sign-in-hint"},L),l({class:"field"},B({class:"sign-in-label",for:"auth-code"},"Verification code"),H({id:"auth-code",class:"sign-in-input",type:"text",name:"code",inputmode:"numeric",autocomplete:"one-time-code",pattern:"[0-9]{6}",maxlength:"6",required:!0,placeholder:"123456",value:_,oninput:n=>{_.val=n.target.value}})),l({class:"actions-stack"},v({type:"submit",class:"btn btn-primary",disabled:()=>T.val},"Verify and sign in"),v({type:"button",class:"btn btn-ghost",onclick:$e},"Back"))),x({class:()=>V.val?"sign-in-message is-error":"sign-in-message",hidden:()=>A.val==null},()=>A.val??"")),l({class:"tools"},v({type:"button",class:"btn btn-secondary",onclick:()=>void G()},"Refresh"),v({type:"button",class:"btn btn-secondary",onclick:()=>void ze()},"Test protected"),j({class:"sign-in-hint",style:"margin-left:auto;font-size:0.78rem",title:we},()=>`Origin: ${we}`)),xe({class:"raw",hidden:()=>i.val==null},()=>i.val??""))}function me(e){if(!(e instanceof HTMLElement)||e.getAttribute(ue)!=null)return null;Ee();const t=Pe(e),r=Ve();return t.origin&&r.setAttribute("data-origin",t.origin),e.replaceWith(r),u.add(r,Me(t.origin)),r}function ge(e){const t=e||document;if(!t||!("querySelectorAll"in t))return[];const r=t.querySelectorAll("pre.auth"),a=[];for(const i of r){if(!(i instanceof HTMLElement))continue;const c=me(i);c&&a.push(c)}return a}typeof document<"u"&&ge(),Y.mountAuth=me,Y.scanAndMountAuths=ge,Object.defineProperty(Y,Symbol.toStringTag,{value:"Module"})})(this.auth=this.auth||{});
+`;function dt(){if(typeof document>"u"||document.head.querySelector(`style[${Q}]`))return;const t=document.createElement("style");t.setAttribute(Q,""),t.textContent=lt,document.head.append(t)}function ut(t,e){for(const r of e){const a=t.getAttribute(r);if(a!=null&&a.trim()!=="")return a.trim()}return null}function ct(t){return{origin:(ut(t,["data-origin","origin"])??it).replace(/\/$/,"")}}function N(t,e){return t?new URL(e,`${t}/`).toString():e}function ht(){const t=document.createElement("div");return t.className="auth",t.setAttribute(K,""),t}function R(t){const e=[t.firstName,t.lastName].filter(Boolean);return e.length>0?e.join(" "):t.email||t.id}function ft(t){var e;return(e=t.roles)!=null&&e.length?t.roles:t.role?[t.role]:[]}function gt(t){const e=new URL("/login",`${t||window.location.origin}/`);return e.searchParams.set("next",window.location.href),e.toString()}function mt(t){const e=p.state("loading"),r=p.state("Checking…"),a=p.state(null),s=p.state(null),i=(n,o)=>{e.val=n.kind,n.kind==="loading"?(r.val="Checking…",a.val=null):n.kind==="signed-out"?(r.val="Signed out",a.val=null):n.kind==="signed-in"?(r.val=`Signed in as ${R(n.user)}`,a.val=n.user):(r.val=n.message,a.val=null),s.val=o===void 0?null:JSON.stringify(o,null,2)},l=async()=>{i({kind:"loading"});const n=N(t,"/api/auth/me");try{const o=await fetch(n,{credentials:"include"}),d=await o.json().catch(()=>null);if(!o.ok){i({kind:"error",message:`auth/me failed: HTTP ${o.status}`},d);return}const S=d==null?void 0:d.user;if(!S){i({kind:"signed-out"},d);return}i({kind:"signed-in",user:S},d)}catch(o){const d=o instanceof Error?o.message:String(o);i({kind:"error",message:`Could not reach Pro auth (${d}). Is the Pro server running at this origin? Books must be on *.availabooks.com (or localhost) so the session cookie is sent.`})}},C=async()=>{const n=N(t,"/api/auth/protected");try{const o=await fetch(n,{credentials:"include"}),d=await o.json().catch(()=>null);s.val=JSON.stringify({status:o.status,body:d},null,2),o.ok||(e.val="error",r.val=`Protected route: HTTP ${o.status}`)}catch(o){const d=o instanceof Error?o.message:String(o);s.val=d,e.val="error",r.val="Protected route request failed"}},k=t||"(same origin)",L=()=>{window.location.assign(gt(t))},g=async()=>{try{await fetch(N(t,"/api/auth/logout"),{method:"POST",credentials:"include",headers:{Accept:"application/json"}})}catch{}await l()};return l(),u({class:"panel"},y({class:()=>e.val==="error"?"status is-error":"status",hidden:()=>e.val==="signed-in"||e.val==="signed-out"},r),u({class:"profile",hidden:()=>e.val!=="signed-in"||a.val==null},u({class:"profile-header"},B({class:"heading"},"Profile"),y({class:"lead"},"You are signed in to Pro.")),u({class:"profile-identity"},u({class:"avatar","aria-hidden":"true"},()=>(a.val?R(a.val):"?").slice(0,1).toUpperCase()),u(y({class:"profile-name"},()=>a.val?R(a.val):""),y({class:"profile-email"},()=>{var n;return((n=a.val)==null?void 0:n.email)||""}))),ot({class:"details"},u(V("User ID"),E(()=>{var n;return((n=a.val)==null?void 0:n.id)||"—"})),u(V("Organization"),E(()=>{var n;return((n=a.val)==null?void 0:n.organizationId)||"—"})),u(V("Role"),E(()=>{const n=a.val;if(!n)return"—";const o=ft(n);return o.length?_({class:"chip-row"},...o.map(d=>_({class:"chip"},d))):"—"})),u(V("Permissions"),E(()=>{var o;const n=((o=a.val)==null?void 0:o.permissions)??[];return n.length?_({class:"chip-row"},...n.map(d=>_({class:"chip"},d))):"—"}))),u({class:"actions"},O({type:"button",class:"btn btn-secondary",onclick:()=>void g()},"Sign out"))),u({class:"login",hidden:()=>e.val==="signed-in"||e.val==="loading"},u({class:"login-header"},B({class:"heading"},"Sign in"),y({class:"lead"},"Continue to Pro to sign in with a one-time email code. You will return here afterward.")),u({class:"actions"},O({type:"button",class:"btn btn-primary",onclick:L},"Sign in with Pro"))),u({class:"tools"},O({type:"button",class:"btn btn-secondary",onclick:()=>void l()},"Refresh"),O({type:"button",class:"btn btn-secondary",onclick:()=>void C()},"Test protected"),_({class:"origin-hint",title:k},()=>`Origin: ${k}`)),st({class:"raw",hidden:()=>s.val==null},()=>s.val??""))}function X(t){if(!(t instanceof HTMLElement)||t.getAttribute(K)!=null)return null;dt();const e=ct(t),r=ht();return e.origin&&r.setAttribute("data-origin",e.origin),t.replaceWith(r),p.add(r,mt(e.origin)),r}function Z(t){const e=t||document;if(!e||!("querySelectorAll"in e))return[];const r=e.querySelectorAll("pre.auth"),a=[];for(const s of r){if(!(s instanceof HTMLElement))continue;const i=X(s);i&&a.push(i)}return a}typeof document<"u"&&Z(),z.mountAuth=X,z.scanAndMountAuths=Z,Object.defineProperty(z,Symbol.toStringTag,{value:"Module"})})(this.auth=this.auth||{});

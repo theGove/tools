@@ -1,7 +1,6 @@
 import van from "vanjs-core";
 
-const { button, dd, div, dl, dt, form, h2, input, label, p, pre, span } =
-  van.tags;
+const { button, dd, div, dl, dt, h2, p, pre, span } = van.tags;
 
 const MOUNTED_ATTR = "data-auth-mounted";
 const STYLES_ATTR = "data-auth-styles";
@@ -95,8 +94,6 @@ const DEFAULT_STYLES = `
   .auth .login[hidden],
   .auth .profile[hidden],
   .auth .status[hidden],
-  .auth .sign-in-form[hidden],
-  .auth .sign-in-message[hidden],
   .auth .raw[hidden] {
     display: none !important;
   }
@@ -107,71 +104,11 @@ const DEFAULT_STYLES = `
     gap: 0.35rem;
   }
 
-  .auth .sign-in-form {
-    display: grid;
-    gap: 0.55rem;
-  }
-
-  .auth .field {
-    display: grid;
-    gap: 0.35rem;
-  }
-
-  .auth .sign-in-label {
-    margin: 0;
-    font-size: 0.78rem;
-    font-weight: 700;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    color: var(--auth-muted);
-  }
-
-  .auth .sign-in-input {
-    width: 100%;
-    box-sizing: border-box;
-    font: inherit;
-    padding: 0.6rem 0.85rem;
-    border: 1px solid var(--auth-border);
-    border-radius: var(--auth-radius-sm);
-    background: var(--auth-surface);
-    color: var(--auth-text);
-    box-shadow: var(--auth-shadow-sm);
-    outline: none;
-    transition: border-color 0.18s ease, box-shadow 0.18s ease;
-  }
-
-  .auth .sign-in-input:focus {
-    border-color: var(--auth-accent);
-    box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.13);
-  }
-
-  .auth .sign-in-hint {
-    margin: 0;
-    font-size: 0.92rem;
-    color: var(--auth-muted);
-  }
-
-  .auth .sign-in-message {
-    margin: 0;
-    font-size: 0.92rem;
-    color: var(--auth-muted);
-  }
-
-  .auth .sign-in-message.is-error {
-    color: var(--auth-danger);
-  }
-
   .auth .actions {
     display: flex;
     flex-wrap: wrap;
     gap: 0.55rem;
     align-items: center;
-  }
-
-  .auth .actions-stack {
-    display: grid;
-    gap: 0.55rem;
-    margin-top: 0.25rem;
   }
 
   .auth button {
@@ -216,21 +153,6 @@ const DEFAULT_STYLES = `
     background: var(--auth-accent-soft);
     border-color: #bfdbfe;
     color: var(--auth-accent-strong);
-  }
-
-  .auth .btn-ghost {
-    background: transparent;
-    color: var(--auth-accent);
-    border: 0;
-    padding: 0.35rem 0;
-    font-weight: 500;
-    text-decoration: underline;
-    text-underline-offset: 0.15em;
-  }
-
-  .auth .btn-ghost:hover:not(:disabled) {
-    color: var(--auth-accent-strong);
-    transform: none;
   }
 
   .auth button:disabled {
@@ -339,6 +261,12 @@ const DEFAULT_STYLES = `
     font-weight: 500;
   }
 
+  .auth .origin-hint {
+    margin-left: auto;
+    font-size: 0.78rem;
+    color: var(--auth-muted);
+  }
+
   .auth .raw {
     margin: 0;
     padding: 0.75rem 0.85rem;
@@ -387,17 +315,7 @@ type AuthConfig = {
   origin: string;
 };
 
-type PendingVerify = {
-  mode: "magic" | "email_verification";
-  email: string;
-  pendingAuthenticationToken: string | null;
-};
-
 type ViewKind = "loading" | "signed-out" | "signed-in" | "error";
-
-type AuthMethod = "password" | "magic";
-
-type SignInStep = "credentials" | "code";
 
 /**
  * Reads the first non-empty attribute value from the given names.
@@ -432,24 +350,6 @@ function apiUrl(origin: string, path: string) {
 }
 
 /**
- * Posts JSON to a Pro auth endpoint with credentials (HttpOnly cookie session).
- */
-async function postAuthJson(
-  origin: string,
-  path: string,
-  body: Record<string, string>,
-) {
-  const response = await fetch(apiUrl(origin, path), {
-    method: "POST",
-    credentials: "include",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  });
-  const payload = await response.json().catch(() => ({}));
-  return { response, payload };
-}
-
-/**
  * Builds a host div that replaces the source pre.
  */
 function createHost() {
@@ -481,55 +381,23 @@ function userRoles(user: AuthUser) {
 }
 
 /**
+ * Builds the Pro login URL that returns to the current book page after auth.
+ */
+function loginUrl(origin: string) {
+  const url = new URL("/login", `${origin || window.location.origin}/`);
+  url.searchParams.set("next", window.location.href);
+  return url.toString();
+}
+
+/**
  * Builds the reactive Pro auth panel (light DOM; host CSS styles classes).
+ * Sign-in navigates to Pro `/login`; session is checked via credentialed `/api/auth/me`.
  */
 function AuthPanel(origin: string) {
   const view = van.state<ViewKind>("loading");
   const statusText = van.state("Checking…");
   const user = van.state<AuthUser | null>(null);
   const rawJson = van.state<string | null>(null);
-  const authMethod = van.state<AuthMethod>("password");
-  const signInStep = van.state<SignInStep>("credentials");
-  const signInMessage = van.state<string | null>(null);
-  const signInMessageError = van.state(false);
-  const codeHint = van.state("Enter the 6-digit code we sent to your email.");
-  const passwordBusy = van.state(false);
-  const magicBusy = van.state(false);
-  const codeBusy = van.state(false);
-  const emailValue = van.state("");
-  const passwordValue = van.state("");
-  const codeValue = van.state("");
-
-  let pendingVerify: PendingVerify = {
-    mode: "magic",
-    email: "",
-    pendingAuthenticationToken: null,
-  };
-
-  const clearMessage = () => {
-    signInMessage.val = null;
-    signInMessageError.val = false;
-  };
-
-  const setMessage = (message: string, isError = false) => {
-    signInMessage.val = message;
-    signInMessageError.val = isError;
-  };
-
-  const showCredentialsStep = () => {
-    signInStep.val = "credentials";
-    codeValue.val = "";
-    clearMessage();
-  };
-
-  const showCodeStep = (state: PendingVerify) => {
-    signInStep.val = "code";
-    codeValue.val = "";
-    codeHint.val =
-      state.mode === "email_verification"
-        ? `Enter the verification code we sent to ${state.email}.`
-        : `Enter the 6-digit code we sent to ${state.email}.`;
-  };
 
   const setStatus = (
     next:
@@ -546,15 +414,12 @@ function AuthPanel(origin: string) {
     } else if (next.kind === "signed-out") {
       statusText.val = "Signed out";
       user.val = null;
-      showCredentialsStep();
     } else if (next.kind === "signed-in") {
       statusText.val = `Signed in as ${displayName(next.user)}`;
       user.val = next.user;
-      clearMessage();
     } else {
       statusText.val = next.message;
       user.val = null;
-      showCredentialsStep();
     }
 
     rawJson.val = raw === undefined ? null : JSON.stringify(raw, null, 2);
@@ -621,175 +486,11 @@ function AuthPanel(origin: string) {
     }
   };
 
-  /**
-   * Applies a password / verify response: email verification, success, or error.
-   */
-  const applyAuthResult = async (
-    response: Response,
-    payload: Record<string, unknown>,
-    fallbackEmail: string,
-    failureMessage: string,
-  ) => {
-    if (payload.status === "email_verification_required") {
-      pendingVerify = {
-        mode: "email_verification",
-        email: String(payload.email || fallbackEmail),
-        pendingAuthenticationToken:
-          typeof payload.pendingAuthenticationToken === "string"
-            ? payload.pendingAuthenticationToken
-            : null,
-      };
-      showCodeStep(pendingVerify);
-      setMessage("Check your email for a verification code.");
-      return;
-    }
-
-    if (!response.ok || payload.status !== "authenticated") {
-      setMessage(
-        String(payload.message || payload.error || failureMessage),
-        true,
-      );
-      return;
-    }
-
-    clearMessage();
-    passwordValue.val = "";
-    await refreshStatus();
-  };
-
-  const onPasswordAuth = async (
-    event: Event,
-    path: "/api/auth/password/sign-in" | "/api/auth/password/sign-up",
-  ) => {
-    event.preventDefault();
-    const email = emailValue.val.trim();
-    const password = passwordValue.val;
-    if (!email) {
-      setMessage("Enter your email address.", true);
-      return;
-    }
-    if (!password) {
-      setMessage("Enter your password.", true);
-      return;
-    }
-
-    clearMessage();
-    passwordBusy.val = true;
-
-    try {
-      const { response, payload } = await postAuthJson(origin, path, {
-        email,
-        password,
-      });
-      await applyAuthResult(
-        response,
-        payload,
-        email,
-        path === "/api/auth/password/sign-up"
-          ? "Could not create account."
-          : "Invalid email or password.",
-      );
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      setMessage(`Could not sign in (${message}).`, true);
-    } finally {
-      passwordBusy.val = false;
-    }
-  };
-
-  const onMagicSend = async (event: Event) => {
-    event.preventDefault();
-    const email = emailValue.val.trim();
-    if (!email) {
-      setMessage("Enter your email address.", true);
-      return;
-    }
-
-    clearMessage();
-    magicBusy.val = true;
-
-    try {
-      const { response, payload } = await postAuthJson(
-        origin,
-        "/api/auth/magic/send",
-        { email },
-      );
-      if (!response.ok || payload.status !== "sent") {
-        setMessage(
-          String(payload.message || payload.error || "Could not send code."),
-          true,
-        );
-        return;
-      }
-
-      pendingVerify = {
-        mode: "magic",
-        email,
-        pendingAuthenticationToken: null,
-      };
-      setMessage("Code sent. Check your inbox.");
-      showCodeStep(pendingVerify);
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      setMessage(`Could not send code (${message}).`, true);
-    } finally {
-      magicBusy.val = false;
-    }
-  };
-
-  const onCodeSubmit = async (event: Event) => {
-    event.preventDefault();
-    const code = codeValue.val.trim();
-    if (!code) {
-      setMessage("Enter the verification code.", true);
-      return;
-    }
-
-    clearMessage();
-    codeBusy.val = true;
-
-    try {
-      const { response, payload } =
-        pendingVerify.mode === "email_verification"
-          ? await postAuthJson(origin, "/api/auth/email-verification/verify", {
-              code,
-              pendingAuthenticationToken:
-                pendingVerify.pendingAuthenticationToken || "",
-            })
-          : await postAuthJson(origin, "/api/auth/magic/verify", {
-              email: pendingVerify.email,
-              code,
-            });
-
-      await applyAuthResult(
-        response,
-        payload,
-        pendingVerify.email,
-        "Invalid or expired code.",
-      );
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      setMessage(`Could not verify code (${message}).`, true);
-    } finally {
-      codeBusy.val = false;
-    }
-  };
-
-  const onRestart = () => {
-    pendingVerify = {
-      mode: "magic",
-      email: "",
-      pendingAuthenticationToken: null,
-    };
-    showCredentialsStep();
-  };
-
-  const switchMethod = (method: AuthMethod) => {
-    authMethod.val = method;
-    showCredentialsStep();
-  };
-
   const originLabel = origin || "(same origin)";
+
+  const goToLogin = () => {
+    window.location.assign(loginUrl(origin));
+  };
 
   const onSignOut = async () => {
     try {
@@ -804,21 +505,13 @@ function AuthPanel(origin: string) {
     await refreshStatus();
   };
 
-  const loginLead = () => {
-    if (authMethod.val === "magic") {
-      return "Enter your email and we will send a one-time code.";
-    }
-    return "Sign in with your email and password, or create an account.";
-  };
-
   void refreshStatus();
 
   return div(
     { class: "panel" },
     p(
       {
-        class: () =>
-          view.val === "error" ? "status is-error" : "status",
+        class: () => (view.val === "error" ? "status is-error" : "status"),
         hidden: () => view.val === "signed-in" || view.val === "signed-out",
       },
       statusText,
@@ -835,13 +528,10 @@ function AuthPanel(origin: string) {
       ),
       div(
         { class: "profile-identity" },
-        div(
-          { class: "avatar", "aria-hidden": "true" },
-          () => {
-            const name = user.val ? displayName(user.val) : "?";
-            return name.slice(0, 1).toUpperCase();
-          },
-        ),
+        div({ class: "avatar", "aria-hidden": "true" }, () => {
+          const name = user.val ? displayName(user.val) : "?";
+          return name.slice(0, 1).toUpperCase();
+        }),
         div(
           p({ class: "profile-name" }, () =>
             user.val ? displayName(user.val) : "",
@@ -852,10 +542,7 @@ function AuthPanel(origin: string) {
       dl(
         { class: "details" },
         div(dt("User ID"), dd(() => user.val?.id || "—")),
-        div(
-          dt("Organization"),
-          dd(() => user.val?.organizationId || "—"),
-        ),
+        div(dt("Organization"), dd(() => user.val?.organizationId || "—")),
         div(
           dt("Role"),
           dd(() => {
@@ -909,179 +596,21 @@ function AuthPanel(origin: string) {
       div(
         { class: "login-header" },
         h2({ class: "heading" }, "Sign in"),
-        p({ class: "lead" }, loginLead),
-      ),
-      form(
-        {
-          class: "sign-in-form",
-          hidden: () =>
-            signInStep.val !== "credentials" || authMethod.val !== "password",
-          onsubmit: (event: Event) =>
-            void onPasswordAuth(event, "/api/auth/password/sign-in"),
-        },
-        div(
-          { class: "field" },
-          label({ class: "sign-in-label", for: "auth-email" }, "Email"),
-          input({
-            id: "auth-email",
-            class: "sign-in-input",
-            type: "email",
-            name: "email",
-            autocomplete: "email",
-            required: true,
-            placeholder: "you@example.com",
-            value: emailValue,
-            oninput: (e: Event) => {
-              emailValue.val = (e.target as HTMLInputElement).value;
-            },
-          }),
-        ),
-        div(
-          { class: "field" },
-          label({ class: "sign-in-label", for: "auth-password" }, "Password"),
-          input({
-            id: "auth-password",
-            class: "sign-in-input",
-            type: "password",
-            name: "password",
-            autocomplete: "current-password",
-            required: true,
-            placeholder: "••••••••",
-            value: passwordValue,
-            oninput: (e: Event) => {
-              passwordValue.val = (e.target as HTMLInputElement).value;
-            },
-          }),
-        ),
-        div(
-          { class: "actions-stack" },
-          button(
-            {
-              type: "submit",
-              class: "btn btn-primary",
-              disabled: () => passwordBusy.val,
-            },
-            "Sign in",
-          ),
-          button(
-            {
-              type: "button",
-              class: "btn btn-secondary",
-              disabled: () => passwordBusy.val,
-              onclick: (event: Event) =>
-                void onPasswordAuth(event, "/api/auth/password/sign-up"),
-            },
-            "Create account",
-          ),
-          button(
-            {
-              type: "button",
-              class: "btn btn-ghost",
-              onclick: () => switchMethod("magic"),
-            },
-            "Use a one-time code instead",
-          ),
+        p(
+          { class: "lead" },
+          "Continue to Pro to sign in with a one-time email code. You will return here afterward.",
         ),
       ),
-      form(
-        {
-          class: "sign-in-form",
-          hidden: () =>
-            signInStep.val !== "credentials" || authMethod.val !== "magic",
-          onsubmit: onMagicSend,
-        },
-        div(
-          { class: "field" },
-          label({ class: "sign-in-label", for: "auth-magic-email" }, "Email"),
-          input({
-            id: "auth-magic-email",
-            class: "sign-in-input",
-            type: "email",
-            name: "email",
-            autocomplete: "email",
-            required: true,
-            placeholder: "you@example.com",
-            value: emailValue,
-            oninput: (e: Event) => {
-              emailValue.val = (e.target as HTMLInputElement).value;
-            },
-          }),
+      div(
+        { class: "actions" },
+        button(
+          {
+            type: "button",
+            class: "btn btn-primary",
+            onclick: goToLogin,
+          },
+          "Sign in with Pro",
         ),
-        div(
-          { class: "actions-stack" },
-          button(
-            {
-              type: "submit",
-              class: "btn btn-primary",
-              disabled: () => magicBusy.val,
-            },
-            "Send code",
-          ),
-          button(
-            {
-              type: "button",
-              class: "btn btn-ghost",
-              onclick: () => switchMethod("password"),
-            },
-            "Use password instead",
-          ),
-        ),
-      ),
-      form(
-        {
-          class: "sign-in-form",
-          hidden: () => signInStep.val !== "code",
-          onsubmit: onCodeSubmit,
-        },
-        p({ class: "sign-in-hint" }, codeHint),
-        div(
-          { class: "field" },
-          label(
-            { class: "sign-in-label", for: "auth-code" },
-            "Verification code",
-          ),
-          input({
-            id: "auth-code",
-            class: "sign-in-input",
-            type: "text",
-            name: "code",
-            inputmode: "numeric",
-            autocomplete: "one-time-code",
-            pattern: "[0-9]{6}",
-            maxlength: "6",
-            required: true,
-            placeholder: "123456",
-            value: codeValue,
-            oninput: (e: Event) => {
-              codeValue.val = (e.target as HTMLInputElement).value;
-            },
-          }),
-        ),
-        div(
-          { class: "actions-stack" },
-          button(
-            {
-              type: "submit",
-              class: "btn btn-primary",
-              disabled: () => codeBusy.val,
-            },
-            "Verify and sign in",
-          ),
-          button(
-            { type: "button", class: "btn btn-ghost", onclick: onRestart },
-            "Back",
-          ),
-        ),
-      ),
-      p(
-        {
-          class: () =>
-            signInMessageError.val
-              ? "sign-in-message is-error"
-              : "sign-in-message",
-          hidden: () => signInMessage.val == null,
-        },
-        () => signInMessage.val ?? "",
       ),
     ),
     div(
@@ -1104,8 +633,7 @@ function AuthPanel(origin: string) {
       ),
       span(
         {
-          class: "sign-in-hint",
-          style: "margin-left:auto;font-size:0.78rem",
+          class: "origin-hint",
           title: originLabel,
         },
         () => `Origin: ${originLabel}`,
