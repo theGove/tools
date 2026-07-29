@@ -9,7 +9,7 @@ from utils import processDocument
 from utils import getTitle
 from utils import getPreProcessArgs
 
-BLOG_URL = "https://availabooks-system.blogspot.com/"
+BLOG_URL = "https://system.availabooks.com/"
 
 HELP_EPILOG = """
 Publishes API files from tools/api/ to the availabooks-system blog.

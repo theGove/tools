@@ -1,7 +1,22 @@
-let bookInfo=null
-const pageData={}// probably should integrate into book data
-let  variables={}
+const globals={
+    systemUrl:"https://system.availabooks.com",
+    appUrl:"https://app.availabooks.com",
+    bookInfo:null,
+    pageData:{},
+    variables:{},
+    user:{}
+}
 
+function getUserRecord(){
+  fetch(globals.appUrl + "/api/auth/me", {credentials: "include" }).then(response => {
+    if (!response.ok) {throw new Error('Network response was not ok. Could not get user record')}
+    return response.json()}).then(data => {
+        console.log("data",data)
+    globals.user = data.user
+    console.log("================globals.user",globals.user)
+  })
+  
+}
 
 function searchBook(){
   fetch(`/feeds/posts/default?alt=json&label=chapter&v=2&orderby=relevance&max-results=100&q=label%3Achapter+${encodeURIComponent(tag("search").value)}&start-index=1&rewriteforssl=true`)
@@ -113,6 +128,7 @@ function findPhraseWithContext(text, phrase, contextCount = 10) {
 }
 
 function init(){
+    // This function  gets the bookInfo from the correct location and sends it to initialize.  Also loads development code if running locally
 
     // bring in code that runs locally for debugging and testing
     if(location.hostname.startsWith("127.") || location.host.toLowerCase().startsWith("localhost")){
@@ -126,10 +142,10 @@ function init(){
 
 function initialize(bookInfoFeed){
 
-    bookInfo = JSON.parse(bookInfoFeed.feed.entry[0].content.$t)
-    console.log("bookInfo",bookInfo)
+    globals.bookInfo = JSON.parse(bookInfoFeed.feed.entry[0].content.$t)
+    console.log("globals.bookInfo",globals.bookInfo)
     
-
+    getUserRecord()
     setVariables()
     buildMenu() 
     configureBook()
@@ -168,25 +184,25 @@ function initialize(bookInfoFeed){
 }
 
 function configureBook(){
-    document.body.style.setProperty('--font-zoom', variables.fontZoom);
+    document.body.style.setProperty('--font-zoom', globals.variables.fontZoom);
 }
 
 function setVariables(){
-    //read the variables from local storage.  if not present create them and save to local storage
+    //read the globals.variables from local storage.  if not present create them and save to local storage
     const pathArray = window.location.pathname.split("/")
-    variables.year=pathArray[1]
-    variables.month=pathArray[2]
+    globals.variables.year=pathArray[1]
+    globals.variables.month=pathArray[2]
 
     const storedVariables = localStorage.getItem("book-settings")
     if(storedVariables===null){
         // storedVariables do not yet exits
-        variables.fontZoom=1
-        localStorage.setItem(`book-settings`,JSON.stringify(variables))
+        globals.variables.fontZoom=1
+        localStorage.setItem(`book-settings`,JSON.stringify(globals.variables))
     }else{
-        variables=JSON.parse(storedVariables)
+        globals.variables=JSON.parse(storedVariables)
     }
 
-    //console.log("variables",variables)
+    //console.log("globals.variables",globals.variables)
     //console.log("storedVariables",storedVariables)
   
 }
@@ -328,11 +344,11 @@ function showSection(section, recordHash=true){
         // needs to be updated to work with TOC, for now, it will guess the chapter number
 
         
-        if(!pageData.bookend){
-            pageData.bookend = tag("page-data").dataset.bookend
+        if(!globals.pageData.bookend){
+            globals.pageData.bookend = tag("page-data").dataset.bookend
             //console.log('tag("page-data").dataset.bookend',tag("page-data").dataset.bookend)
         }
-        if(pageData.bookend==="true"){
+        if(globals.pageData.bookend==="true"){
             message({text:"You have reached the end of this book.  Thank you for using Availabooks.", title:"Book Over", buttons:[], seconds:8})
         }else{
             const components = window.location.pathname.split('/')
@@ -412,14 +428,6 @@ function showMenu(){
         menuWidth=tag('menu').offsetWidth
     }   
     tag('menu').style.left= '0'
-    //console.log("menuWidth",menuWidth)
-    // if(tag("menu-button").innerHTML === "close"){
-    //     tag("menu-button").innerHTML="menu"
-    //     tag('menu').style.left= `-${menuWidth+10}px`
-    // }else{
-    //     tag("menu-button").innerHTML="close"
-    //     tag('menu').style.left= '0'
-    // }    
     
 }
 
@@ -445,17 +453,17 @@ function buildMenu(){
 
 
     const  html=[`
-        <div class='menu-header'><span class='material-symbols-outlined menu-button' onclick='hideMenu()'>close</span><span id='book-title'><a href='toc.html'>${bookInfo.title}</a></span></div>
+        <div class='menu-header'><span class='material-symbols-outlined menu-button' onclick='hideMenu()'>close</span><span id='book-title'><a href='toc.html'>${globals.bookInfo.title}</a></span></div>
         <div id='menu-content'>
         <div id='toc'>
     `]
     
-    for(const chapter of bookInfo.chapters){
+    for(const chapter of globals.bookInfo.chapters){
         if(chapter.sections){
             let chapterNumber = window.location.pathname.split("/").pop().split(".")[0]
             if(chapterNumber === chapter.id){
                 html.push("<details open>")
-                bookInfo.currentChapter=chapterNumber
+                globals.bookInfo.currentChapter=chapterNumber
             }else{
                 html.push("<details>")
             }
@@ -488,8 +496,8 @@ function buildMenu(){
             <div>
     `)
      // make a place to receive the tools here 
-     console.log("book info tools", bookInfo.tools)
-     for(const tool of bookInfo.tools){
+     console.log("book info tools", globals.bookInfo.tools)
+     for(const tool of globals.bookInfo.tools){
         console.log(tool)
         html.push(`<div id="menu-tool-${tool}"></div>`)
 
@@ -506,9 +514,9 @@ function buildMenu(){
 
     //get the tools
     tag("menu").innerHTML=html.join("\n")
-     for(const tool of bookInfo.tools){
+     for(const tool of globals.bookInfo.tools){
         console.log(tool)
-        const toolUrl=`https://availabooks-system.blogspot.com/feeds/posts/default/-/${tool}?alt=json-in-script&max-results=1&callback=loadMenuTool`
+        const toolUrl=`${globals.systemUrl}/feeds/posts/default/-/${tool}?alt=json-in-script&max-results=1&callback=loadMenuTool`
         loadCrossOrigin(toolUrl); 
 
      } 
@@ -519,7 +527,7 @@ function buildMenu(){
 function loadMenuTool(x){
     const toolId="menu-tool-" + x.feed.entry[0].title.$t
     const parts=x.feed.entry[0].content.$t.split("==================================================")
-    console.log("loading menu tool", parts[0])
+    //console.log("loading menu tool", parts[0])
    
     // load the css
     const style = document.createElement('style');
@@ -758,14 +766,14 @@ function fontSize(adjustment){
 
     //const zoom = parseFloat(window.getComputedStyle(document.body).getPropertyValue('--font-zoom'))
     if(!adjustment){
-        variables.fontZoom = 1
+        globals.variables.fontZoom = 1
         //document.body.style.setProperty('--font-zoom', 1);
     }else{
-        variables.fontZoom = Math.round((variables.fontZoom+adjustment)*10)/10
+        globals.variables.fontZoom = Math.round((globals.variables.fontZoom+adjustment)*10)/10
         //document.body.style.setProperty('--font-zoom', zoom + adjustment);
     }
-    document.body.style.setProperty('--font-zoom', variables.fontZoom);
-    localStorage.setItem(`book-settings`,JSON.stringify(variables))
+    document.body.style.setProperty('--font-zoom', globals.variables.fontZoom);
+    localStorage.setItem(`book-settings`,JSON.stringify(globals.variables))
 
 }
 
@@ -872,29 +880,10 @@ function makePrompt(evt,props){
 
 }
 
+    function handleLogin(){
+      console.log(`I'm loggin' in!`)
 
-    
-// gove thiks this dead wood.  no sure so commenting just in case    
-    // async function loadModule(label){// get the first post of a specified label and load the code
-    //   const code = await getPage(label)
-    //   injectJs(code)
-    // }
-    
-    // async function getPage(label){//get the first post with the specified label.
-        
-    //     if(localhost){
-    //       const url=`/tools/api/${label}.js`
-    //       const response = await fetch(url)
-    //       const code = await response.text()  
-    //       return code
-    //     }else{
-    //       const url=`${location.origin}/feeds/posts/default/-/${label}?alt=json`
-    //       const response = await fetch(url)
-    //       const page = await response.json()
-    //       return page.feed.entry[0].content.$t
-    //     }
-    // }    
-
-
+      window.location.href=globals.systemUrl + "/2000/02/login.html?next=" + encodeURI(location.href)
+    }
 
 init()

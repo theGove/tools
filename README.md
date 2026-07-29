@@ -80,6 +80,18 @@ python ../tools/publish-api.py dev system monaco
 
 The script finds the post labeled with both the api name and the version via the blog feed and uploads the contents of `api/<name>.js` into it. If no post matches both labels, it exits with an error instead of publishing. After it succeeds, chapters can use `_$_import: <name>`.
 
+## GUI
+
+A desktop window for download/preview/publish/publish-api, for anyone who'd rather not use the command line:
+
+```bash
+python tools/gui.py
+```
+
+It auto-discovers book folders (any sibling of `tools/` with a `config.json`), lists that book's numbered chapters for you to check off, and streams each script's output live. Some actions (bulk publish, creating a new API post) ask for confirmation — type your answer into the reply box under the log and press Enter, the same as you would in a terminal. Publishing actions post live to the blog, same as running the scripts directly.
+
+Requires `tkinter`, which ships with the standard python.org and Homebrew installers; on some Linux distros install it separately (e.g. `apt install python3-tk`).
+
 ## Using the tools
 
 **Run scripts from the book folder you are working in, not from `tools/`.** Each script reads that folder's Markdown files, `config.json`, and `local/` templates. Change into the book directory first, then invoke the script with `../tools/`.
