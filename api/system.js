@@ -563,7 +563,7 @@ function escapeHtml(value) {
 }
 
 /**
- * Formats role labels for display in the menu course list.
+ * Formats non-learner role labels for display in the menu course list.
  * @param {{ role?: string | null; roles?: string[] }} course - Course membership.
  */
 function courseRoleLabel(course) {
@@ -573,7 +573,112 @@ function courseRoleLabel(course) {
             : course.role
                 ? [course.role]
                 : []
-    return roles.length > 0 ? roles.join(", ") : "member"
+    const visible = roles.filter(
+        (role) => typeof role === "string" && role.trim() && role.trim().toLowerCase() !== "learner"
+    )
+    return visible.length > 0 ? visible.join(", ") : ""
+}
+
+/**
+ * Returns the book slug for the current host (e.g. sql.availabooks.com → sql).
+ */
+function currentBookSlug() {
+    const host = location.hostname.toLowerCase()
+    const suffix = ".availabooks.com"
+    if (!host.endsWith(suffix)) {
+        return null
+    }
+    const slug = host.slice(0, -suffix.length)
+    return slug && !slug.includes(".") ? slug : null
+}
+
+/**
+ * Builds the public URL for a course book subdomain.
+ * @param {string} slug - Book slug (subdomain of availabooks.com).
+ */
+function bookUrl(slug) {
+    return `https://${slug}.availabooks.com/`
+}
+
+/**
+ * Returns the book slugs attached to a course.
+ * @param {{ book?: string[] }} course - Course membership from the API.
+ */
+function courseBookSlugs(course) {
+    return Array.isArray(course.book)
+        ? course.book.filter((slug) => typeof slug === "string" && slug.trim())
+        : []
+}
+
+/**
+ * Renders per-book switch/open buttons for a course.
+ * @param {{ title?: string; workosOrganizationId: string; book?: string[] }} course - Course membership.
+ * @param {boolean} isCurrentCourse - Whether this course is the session org.
+ */
+function renderCourseBookButtons(course, isCurrentCourse) {
+    const orgId = escapeHtml(course.workosOrganizationId)
+    const books = courseBookSlugs(course)
+    const activeSlug = currentBookSlug()
+    const courseTitle = course.title || "this course"
+
+    if (books.length === 0) {
+        if (isCurrentCourse) {
+            return ""
+        }
+        return `
+            <div class="menu-course-books">
+                <button
+                    type="button"
+                    class="menu-course-select"
+                    data-menu-course-select
+                    data-organization-id="${orgId}"
+                    title="${escapeHtml(`Switch to ${courseTitle}`)}"
+                >
+                    Switch
+                </button>
+            </div>
+        `
+    }
+
+    return `
+        <div class="menu-course-books">
+            ${books
+                .map((slug) => {
+                    const safeSlug = escapeHtml(slug)
+                    const destination = bookUrl(slug)
+                    const isHere = activeSlug === slug
+                    if (isHere) {
+                        return `
+                            <button
+                                type="button"
+                                class="menu-course-select menu-course-select-current"
+                                disabled
+                                aria-current="true"
+                                title="${escapeHtml(`You are already viewing ${destination}`)}"
+                            >
+                                ${safeSlug}
+                            </button>
+                        `
+                    }
+                    const title = isCurrentCourse
+                        ? `Go to ${destination}`
+                        : `Switch to ${courseTitle} and go to ${destination}`
+                    return `
+                        <button
+                            type="button"
+                            class="menu-course-select"
+                            data-menu-course-select
+                            data-organization-id="${orgId}"
+                            data-book-slug="${safeSlug}"
+                            title="${escapeHtml(title)}"
+                        >
+                            ${safeSlug}
+                        </button>
+                    `
+                })
+                .join("")}
+        </div>
+    `
 }
 
 /**
@@ -594,11 +699,15 @@ function bindMenuCourses() {
         if (!(button instanceof HTMLButtonElement) || button.disabled) {
             return
         }
+        // Keep book buttons inside <summary> from toggling the course dropdown.
+        event.preventDefault()
+        event.stopPropagation()
         const organizationId = button.getAttribute("data-organization-id")
         if (!organizationId) {
             return
         }
-        void selectMenuCourse(organizationId, button)
+        const bookSlug = button.getAttribute("data-book-slug")
+        void selectMenuCourse(organizationId, button, bookSlug)
     })
 }
 
@@ -613,7 +722,6 @@ async function updateMenuCourses() {
 
     if (!globals.user || !globals.user.id) {
         container.innerHTML = `
-            <h6>Your Courses</h6>
             <p class="menu-courses-hint">
                 <a href="#" onclick="handleLogin(); return false;">Log in</a> to see your courses.
             </p>
@@ -622,7 +730,6 @@ async function updateMenuCourses() {
     }
 
     container.innerHTML = `
-        <h6>Your Courses</h6>
         <p class="menu-courses-hint">Loading…</p>
     `
 
@@ -633,23 +740,43 @@ async function updateMenuCourses() {
     } catch (err) {
         console.error(err)
         container.innerHTML = `
-            <h6>Your Courses</h6>
             <p class="menu-courses-hint">Could not load courses.</p>
         `
     }
 }
 
 /**
- * Renders the current course and other available courses in the menu.
+ * Renders one course row for the menu course picker dropdown.
+ * @param {{ title: string; workosOrganizationId: string; book?: string[]; role?: string | null; roles?: string[] }} course - Course membership.
+ * @param {boolean} isCurrentCourse - Whether this course is the session org.
+ */
+function renderMenuCourseItem(course, isCurrentCourse) {
+    const roleLabel = courseRoleLabel(course)
+    const roleParts = [roleLabel, isCurrentCourse ? "Current" : ""].filter(Boolean)
+    const roleHtml = roleParts.length
+        ? `<span class="menu-course-role">${escapeHtml(roleParts.join(" · "))}</span>`
+        : ""
+    return `
+        <li class="menu-course${isCurrentCourse ? " menu-course-current" : ""}">
+            <div class="menu-course-meta">
+                <span class="menu-course-title">${escapeHtml(course.title || "Untitled course")}</span>
+                ${roleHtml}
+            </div>
+            ${renderCourseBookButtons(course, isCurrentCourse)}
+        </li>
+    `
+}
+
+/**
+ * Renders the current course name with a dropdown of other available courses.
  * @param {HTMLElement} container - Menu courses root element.
- * @param {Array<{ id: string; title: string; workosOrganizationId: string; role?: string | null; roles?: string[] }>} courses - Course memberships.
+ * @param {Array<{ id: string; title: string; workosOrganizationId: string; book?: string[]; role?: string | null; roles?: string[] }>} courses - Course memberships.
  */
 function renderMenuCourses(container, courses) {
     const organizationId = globals.user?.organizationId ?? null
 
     if (!courses.length) {
         container.innerHTML = `
-            <h6>Your Courses</h6>
             <p class="menu-courses-hint">You are not enrolled in any courses yet.</p>
         `
         return
@@ -657,94 +784,100 @@ function renderMenuCourses(container, courses) {
 
     const current = courses.find((course) => course.workosOrganizationId === organizationId)
     const others = courses.filter((course) => course.workosOrganizationId !== organizationId)
+    const currentTitle = escapeHtml(current?.title || "Select a course")
+    const hasDropdown = others.length > 0 || !current
 
-    const currentHtml = current
+    const dropdownCourses = current ? others : courses
+    const dropdownHtml = hasDropdown
         ? `
-            <div class="menu-course menu-course-current">
-                <div class="menu-course-meta">
-                    <div class="menu-course-title">${escapeHtml(current.title || "Untitled course")}</div>
-                    <div class="menu-course-role">${escapeHtml(courseRoleLabel(current))} · Current</div>
-                </div>
-            </div>
-        `
-        : `
-            <p class="menu-courses-hint">No course selected yet. Choose one below.</p>
-        `
-
-    const othersHtml = others.length
-        ? `
-            <div class="menu-courses-others-label">Other courses</div>
             <ul class="menu-courses-list">
-                ${others
-                    .map((course) => {
-                        const orgId = escapeHtml(course.workosOrganizationId)
-                        return `
-                            <li class="menu-course">
-                                <div class="menu-course-meta">
-                                    <div class="menu-course-title">${escapeHtml(course.title || "Untitled course")}</div>
-                                    <div class="menu-course-role">${escapeHtml(courseRoleLabel(course))}</div>
-                                </div>
-                                <button
-                                    type="button"
-                                    class="menu-course-select"
-                                    data-menu-course-select
-                                    data-organization-id="${orgId}"
-                                >
-                                    Switch
-                                </button>
-                            </li>
-                        `
-                    })
+                ${dropdownCourses
+                    .map((course) =>
+                        renderMenuCourseItem(course, course.workosOrganizationId === organizationId)
+                    )
                     .join("")}
             </ul>
         `
-        : `<p class="menu-courses-hint">No other courses available.</p>`
+        : ""
+
+    const currentBooksHtml =
+        current && courseBookSlugs(current).length > 0
+            ? renderCourseBookButtons(current, true)
+            : ""
+
+    if (!hasDropdown) {
+        container.innerHTML = `
+            <div class="menu-courses-picker">
+                <div class="menu-courses-current">
+                    <span class="menu-courses-current-name">${currentTitle}</span>
+                    ${currentBooksHtml}
+                </div>
+            </div>
+        `
+        return
+    }
 
     container.innerHTML = `
-        <h6>Your Courses</h6>
-        ${currentHtml}
-        ${othersHtml}
+        <details class="menu-courses-picker">
+            <summary class="menu-courses-current">
+                <span class="menu-courses-current-name">${currentTitle}</span>
+                ${currentBooksHtml}
+                <span class="material-symbols-outlined menu-courses-chevron" aria-hidden="true">expand_more</span>
+            </summary>
+            ${dropdownHtml}
+        </details>
     `
 }
 
 /**
- * Selects a course organization for the current session and refreshes the menu.
+ * Selects a course organization, then opens the chosen book when provided.
  * @param {string} organizationId - WorkOS organization id.
- * @param {HTMLButtonElement} button - Switch button that was clicked.
+ * @param {HTMLButtonElement} button - Switch/open button that was clicked.
+ * @param {string | null} bookSlug - Book slug to open after switching, if any.
  */
-async function selectMenuCourse(organizationId, button) {
+async function selectMenuCourse(organizationId, button, bookSlug) {
+    const originalLabel = button.textContent
     button.disabled = true
-    button.textContent = "Switching…"
+    button.textContent = bookSlug ? "Opening…" : "Switching…"
 
     try {
-        const response = await fetch(globals.appUrl + "/api/auth/course/select", {
-            method: "POST",
-            credentials: "include",
-            headers: {
-                Accept: "application/json",
-                "Content-Type": "application/json",
-            },
-            body: JSON.stringify({ organizationId }),
-        })
-        const payload = await response.json().catch(() => ({}))
-        if (!response.ok || payload.status !== "selected") {
-            button.disabled = false
-            button.textContent = "Switch"
-            console.error("Could not select course", payload)
+        const alreadySelected = globals.user?.organizationId === organizationId
+        if (!alreadySelected) {
+            const response = await fetch(globals.appUrl + "/api/auth/course/select", {
+                method: "POST",
+                credentials: "include",
+                headers: {
+                    Accept: "application/json",
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({ organizationId }),
+            })
+            const payload = await response.json().catch(() => ({}))
+            if (!response.ok || payload.status !== "selected") {
+                button.disabled = false
+                button.textContent = originalLabel || "Switch"
+                console.error("Could not select course", payload)
+                return
+            }
+
+            if (globals.user) {
+                globals.user.organizationId = payload.organizationId
+                globals.user.role = payload.role
+                globals.user.roles = payload.roles
+                globals.user.permissions = payload.permissions
+            }
+        }
+
+        if (bookSlug) {
+            window.location.href = bookUrl(bookSlug)
             return
         }
 
-        if (globals.user) {
-            globals.user.organizationId = payload.organizationId
-            globals.user.role = payload.role
-            globals.user.roles = payload.roles
-            globals.user.permissions = payload.permissions
-        }
         await updateMenuCourses()
     } catch (err) {
         console.error(err)
         button.disabled = false
-        button.textContent = "Switch"
+        button.textContent = originalLabel || "Switch"
     }
 }
 
