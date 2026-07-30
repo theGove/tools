@@ -177,6 +177,10 @@ background:var(--accent-soft);
 color:var(--accent-strong);
 transform: translateY(-1px);
 }
+.login-button.logged-in{
+background:#2e7d32;
+color:#fff;
+}
 .menu-header{
 top:0;
 position:sticky;

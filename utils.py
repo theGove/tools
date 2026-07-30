@@ -81,6 +81,9 @@ def getJsonFile(filePath):
 def processDocument(file_contents,  file_name):
     preProcessArgs =  getPreProcessArgs(file_contents)
     output = pypandoc.convert_text(file_contents, 'html', format='md',extra_args=['-N','--number-offset='+str(int(file_name)-1)])
+    # pandoc.exe on Windows emits \r\n; a later text-mode file write (preview.py)
+    # would translate the \n again, doubling it to \r\r\n and rendering as a blank line
+    output = output.replace('\r\n', '\n').replace('\r', '\n')
 
     # add imports at top of html file
     if "import" in preProcessArgs:

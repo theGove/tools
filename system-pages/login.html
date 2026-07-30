@@ -1,0 +1,717 @@
+<script>
+  
+/**
+ * Returns a safe post-login redirect from `?next=`, or null when invalid.
+ * Mirrors server `resolveSafeLoginNext` (relative paths + localhost / *.availabooks.com).
+ * @param {string | null} next - Raw next query value.
+ */
+function resolveSafeLoginNext(next) {
+  if (!next) {
+    return null;
+  }
+  const trimmed = next.trim();
+  if (!trimmed) {
+    return null;
+  }
+  if (trimmed.startsWith("/") && !trimmed.startsWith("//")) {
+    return trimmed;
+  }
+  try {
+    const url = new URL(trimmed);
+    if (url.protocol !== "http:" && url.protocol !== "https:") {
+      return null;
+    }
+    const origin = url.origin;
+    if (/^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin)) {
+      return url.toString();
+    }
+    if (/^https:\/\/([a-z0-9-]+\.)*availabooks\.com$/i.test(origin)) {
+      return url.toString();
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Shows the login or logout pane depending on https://app.availabooks.com/api/auth/me,
+ * and wires up the sign-out button and "Return to Book" link in the logout pane.
+ */
+async function renderAuthStatus() {
+  const loginRoot = document.getElementById("login");
+  const logoutRoot = document.getElementById("logout");
+  const profileRoot = document.getElementById("profile-edit");
+  if (!loginRoot || !logoutRoot) {
+    return;
+  }
+
+  const emailEl = logoutRoot.querySelector("[data-logout-email]");
+  const nextLink = logoutRoot.querySelector("[data-logout-next]");
+  const signOutButton = logoutRoot.querySelector("[data-logout-button]");
+  const logoutErrorEl = logoutRoot.querySelector("[data-logout-error]");
+
+  const profileForm = profileRoot?.querySelector("[data-profile-form]");
+  const firstNameInput = profileForm?.querySelector('input[name="firstName"]');
+  const lastNameInput = profileForm?.querySelector('input[name="lastName"]');
+  const profileSubmitButton = profileForm?.querySelector('button[type="submit"]');
+  const profileErrorEl = profileRoot?.querySelector("[data-profile-error]");
+  const profileStatusEl = profileRoot?.querySelector("[data-profile-status]");
+
+  const safeNext = resolveSafeLoginNext(
+    new URLSearchParams(window.location.search).get("next"),
+  );
+  if (nextLink instanceof HTMLAnchorElement) {
+    if (safeNext) {
+      nextLink.href = safeNext;
+      nextLink.hidden = false;
+    } else {
+      nextLink.hidden = true;
+    }
+  }
+
+  function showLoggedOut() {
+    loginRoot.style.display = "";
+    logoutRoot.style.display = "none";
+    if (profileRoot instanceof HTMLElement) {
+      profileRoot.style.display = "none";
+    }
+  }
+
+  function showLoggedIn(user) {
+    if (emailEl) {
+      emailEl.textContent = user.email || "Signed in";
+    }
+    loginRoot.style.display = "none";
+    logoutRoot.style.display = "";
+    if (profileRoot instanceof HTMLElement) {
+      profileRoot.style.display = "";
+    }
+    if (firstNameInput instanceof HTMLInputElement) {
+      firstNameInput.value = user.firstName || "";
+    }
+    if (lastNameInput instanceof HTMLInputElement) {
+      lastNameInput.value = user.lastName || "";
+    }
+  }
+
+  signOutButton?.addEventListener("click", async () => {
+    if (logoutErrorEl instanceof HTMLElement) {
+      logoutErrorEl.hidden = true;
+      logoutErrorEl.textContent = "";
+    }
+    if (signOutButton instanceof HTMLButtonElement) {
+      signOutButton.disabled = true;
+    }
+    try {
+      await fetch("https://app.availabooks.com/api/auth/logout", {
+        method: "POST",
+        credentials: "include",
+        headers: { Accept: "application/json" },
+      });
+      window.location.reload();
+    } catch {
+      if (signOutButton instanceof HTMLButtonElement) {
+        signOutButton.disabled = false;
+      }
+      if (logoutErrorEl instanceof HTMLElement) {
+        logoutErrorEl.hidden = false;
+        logoutErrorEl.textContent = "Could not sign out. Try again.";
+      }
+    }
+  });
+
+  profileForm?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    if (!(profileForm instanceof HTMLFormElement)) {
+      return;
+    }
+
+    if (profileErrorEl instanceof HTMLElement) {
+      profileErrorEl.hidden = true;
+      profileErrorEl.textContent = "";
+    }
+    if (profileStatusEl instanceof HTMLElement) {
+      profileStatusEl.hidden = true;
+      profileStatusEl.textContent = "";
+    }
+
+    const formData = new FormData(profileForm);
+    const firstName = String(formData.get("firstName") || "").trim();
+    const lastName = String(formData.get("lastName") || "").trim();
+
+    if (profileSubmitButton instanceof HTMLButtonElement) {
+      profileSubmitButton.disabled = true;
+    }
+
+    try {
+      const response = await fetch("https://app.availabooks.com/api/auth/me", {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ firstName, lastName }),
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(
+          String(payload.message || payload.error || `HTTP ${response.status}`),
+        );
+      }
+
+      const updatedUser = payload?.user || payload;
+      showLoggedIn(updatedUser);
+      if (profileStatusEl instanceof HTMLElement) {
+        profileStatusEl.hidden = false;
+        profileStatusEl.textContent = "Profile updated.";
+      }
+    } catch (error) {
+      if (profileErrorEl instanceof HTMLElement) {
+        profileErrorEl.hidden = false;
+        profileErrorEl.textContent =
+          error instanceof Error
+            ? error.message
+            : "Could not update profile. Try again.";
+      }
+    } finally {
+      if (profileSubmitButton instanceof HTMLButtonElement) {
+        profileSubmitButton.disabled = false;
+      }
+    }
+  });
+
+  try {
+    const response = await fetch("https://app.availabooks.com/api/auth/me", {
+      credentials: "include",
+    });
+    if (!response.ok) {
+      throw new Error(`auth me failed: ${response.status}`);
+    }
+
+    const payload = await response.json();
+    const user = payload?.user;
+
+    if (!user) {
+      showLoggedOut();
+      return;
+    }
+
+    showLoggedIn(user);
+  } catch {
+    showLoggedOut();
+  }
+}
+
+ 
+  
+  
+  
+/**
+ * Drives password and Magic Auth / email-verification flows on `/login`.
+ * After success, redirects to a safe `?next=` URL (book page or `/courses`).
+ */
+function initLogin() {
+  console.log("I'm loggin' in!", document.referrer)
+  
+  const root = document.querySelector("[data-login]");
+  if (!root) {
+    return;
+  }
+
+  const leadEl = root.querySelector("[data-login-lead]");
+  const passwordForm = root.querySelector("[data-login-password-form]");
+  const emailForm = root.querySelector("[data-login-email-form]");
+  const codeForm = root.querySelector("[data-login-code-form]");
+  const codeHint = root.querySelector("[data-login-code-hint]");
+  const errorEl = root.querySelector("[data-login-error]");
+  const statusEl = root.querySelector("[data-login-status]");
+  const restartButton = root.querySelector("[data-login-restart]");
+  const useMagicButton = root.querySelector("[data-login-use-magic]");
+  const usePasswordButton = root.querySelector("[data-login-use-password]");
+  const signUpButton = root.querySelector("[data-login-sign-up]");
+  const passwordEmailInput = passwordForm?.querySelector('input[name="email"]');
+  const magicEmailInput = emailForm?.querySelector('input[name="email"]');
+  const codeInput = codeForm?.querySelector('input[name="code"]');
+
+  /** @type {{ method: 'password' | 'magic'; mode: 'magic' | 'email_verification'; email: string; pendingAuthenticationToken: string | null }} */
+  let state = {
+    method: "password",
+    mode: "magic",
+    email: "",
+    pendingAuthenticationToken: null,
+  };
+
+  /**
+   * Shows or clears the inline error message.
+   * @param {string | null} message - Error text, or null to hide.
+   */
+  function setError(message) {
+    if (!errorEl) {
+      return;
+    }
+    if (!message) {
+      errorEl.hidden = true;
+      errorEl.textContent = "";
+      return;
+    }
+    errorEl.hidden = false;
+    errorEl.textContent = message;
+  }
+
+  /**
+   * Shows or clears the status message.
+   * @param {string | null} message - Status text, or null to hide.
+   */
+  function setStatus(message) {
+    if (!statusEl) {
+      return;
+    }
+    if (!message) {
+      statusEl.hidden = true;
+      statusEl.textContent = "";
+      return;
+    }
+    statusEl.hidden = false;
+    statusEl.textContent = message;
+  }
+
+  /**
+   * Toggles submit/busy controls on a form.
+   * @param {HTMLFormElement} form - Form whose controls to update.
+   * @param {boolean} busy - Whether the form is submitting.
+   */
+  function setBusy(form, busy) {
+    for (const control of form.querySelectorAll("button")) {
+      if (control instanceof HTMLButtonElement) {
+        control.disabled = busy;
+      }
+    }
+  }
+
+  /**
+   * Navigates to `?next=` when safe, otherwise `/courses`.
+   */
+  function redirectAfterLogin() {
+    const next = resolveSafeLoginNext(
+      new URLSearchParams(window.location.search).get("next"),
+    );
+    if(next){
+      window.location.assign(next)// || document.referrer);
+    }
+  }
+
+  /**
+   * Applies a successful or intermediate auth response.
+   * @param {Response} response - Fetch response.
+   * @param {Record<string, unknown>} payload - Parsed JSON body.
+   * @param {string} [fallbackEmail] - Email to use when verification is required.
+   */
+  function applyAuthResult(response, payload, fallbackEmail = "") {
+    if (payload.status === "email_verification_required") {
+      showCodeStep(
+        "email_verification",
+        String(payload.email || fallbackEmail || ""),
+        String(payload.pendingAuthenticationToken || ""),
+      );
+      setStatus("Check your email for a verification code.");
+      return true;
+    }
+
+    if (!response.ok || payload.status !== "authenticated") {
+      setError(
+        String(
+          payload.message ||
+            payload.error ||
+            "Could not sign in. Check your credentials.",
+        ),
+      );
+      return false;
+    }
+
+    redirectAfterLogin();
+    return true;
+  }
+
+  /**
+   * Shows the password credentials step.
+   */
+  function showPasswordStep() {
+    state = {
+      method: "password",
+      mode: "magic",
+      email: "",
+      pendingAuthenticationToken: null,
+    };
+    if (leadEl) {
+      leadEl.textContent =
+        "Sign in with your email and password, or create an account.";
+    }
+    if (codeForm instanceof HTMLElement) {
+      codeForm.hidden = true;
+    }
+    if (emailForm instanceof HTMLElement) {
+      emailForm.hidden = true;
+    }
+    if (passwordForm instanceof HTMLElement) {
+      passwordForm.hidden = false;
+    }
+    if (passwordEmailInput instanceof HTMLInputElement) {
+      passwordEmailInput.focus();
+    }
+    setError(null);
+    setStatus(null);
+  }
+
+  /**
+   * Shows the magic-auth email step.
+   */
+  function showMagicEmailStep() {
+    state = {
+      method: "magic",
+      mode: "magic",
+      email: "",
+      pendingAuthenticationToken: null,
+    };
+    if (leadEl) {
+      leadEl.textContent =
+        "Enter your email and we will send a one-time code to sign you in.";
+    }
+    if (codeForm instanceof HTMLElement) {
+      codeForm.hidden = true;
+    }
+    if (passwordForm instanceof HTMLElement) {
+      passwordForm.hidden = true;
+    }
+    if (emailForm instanceof HTMLElement) {
+      emailForm.hidden = false;
+    }
+    if (magicEmailInput instanceof HTMLInputElement) {
+      magicEmailInput.focus();
+    }
+    setError(null);
+    setStatus(null);
+  }
+
+  /**
+   * Switches the UI to the code-entry step.
+   * @param {'magic' | 'email_verification'} mode - Which verify endpoint to use.
+   * @param {string} email - Email the code was sent to.
+   * @param {string | null} [pendingAuthenticationToken] - Token when email verification is required.
+   */
+  function showCodeStep(mode, email, pendingAuthenticationToken = null) {
+    state = {
+      ...state,
+      mode,
+      email,
+      pendingAuthenticationToken,
+    };
+    if (passwordForm instanceof HTMLElement) {
+      passwordForm.hidden = true;
+    }
+    if (emailForm instanceof HTMLElement) {
+      emailForm.hidden = true;
+    }
+    if (codeForm instanceof HTMLElement) {
+      codeForm.hidden = false;
+    }
+    if (codeHint) {
+      codeHint.textContent =
+        mode === "email_verification"
+          ? `Enter the verification code we sent to ${email}.`
+          : `Enter the 6-digit code we sent to ${email}.`;
+    }
+    if (codeInput instanceof HTMLInputElement) {
+      codeInput.value = "";
+      codeInput.focus();
+    }
+  }
+
+  /**
+   * Returns from the code step to the active credentials method.
+   */
+  function showCredentialsStep() {
+    if (state.method === "magic") {
+      showMagicEmailStep();
+      return;
+    }
+    showPasswordStep();
+  }
+
+  /**
+   * Posts JSON to an auth API endpoint.
+   * @param {string} url - API path.
+   * @param {Record<string, string>} body - JSON body.
+   */
+  async function postJson(url, body) {
+    const response = await fetch(url, {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    const payload = await response.json().catch(() => ({}));
+    return { response, payload };
+  }
+
+  /**
+   * Signs in or signs up with email and password.
+   * @param {HTMLFormElement} form - Password form.
+   * @param {'https://app.availabooks.com/api/auth/password/sign-in' | 'https://app.availabooks.com/api/auth/password/sign-up'} path - Endpoint.
+   */
+  async function submitPassword(form, path) {
+    const formData = new FormData(form);
+    const email = String(formData.get("email") || "").trim();
+    const password = String(formData.get("password") || "");
+    if (!email || !password) {
+      setError("Enter your email and password.");
+      return;
+    }
+
+    setError(null);
+    setStatus(null);
+    setBusy(form, true);
+
+    try {
+      const { response, payload } = await postJson(path, { email, password });
+      applyAuthResult(response, payload, email);
+    } catch {
+      setError("Could not sign in. Try again.");
+    } finally {
+      setBusy(form, false);
+    }
+  }
+
+  passwordForm?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    if (!(passwordForm instanceof HTMLFormElement)) {
+      return false;
+    }
+    await submitPassword(passwordForm, "https://app.availabooks.com/api/auth/password/sign-in");
+    return false;
+  });
+
+  signUpButton?.addEventListener("click", async () => {
+    if (!(passwordForm instanceof HTMLFormElement)) {
+      return;
+    }
+    await submitPassword(passwordForm, "https://app.availabooks.com/api/auth/password/sign-up");
+  });
+
+  emailForm?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    if (!(emailForm instanceof HTMLFormElement)) {
+      return;
+    }
+
+    const formData = new FormData(emailForm);
+    const email = String(formData.get("email") || "").trim();
+    if (!email) {
+      setError("Enter your email address.");
+      return;
+    }
+
+    setError(null);
+    setStatus(null);
+    setBusy(emailForm, true);
+
+    try {
+      const { response, payload } = await postJson("https://app.availabooks.com/api/auth/magic/send", {
+        email,
+      });
+      if (!response.ok || payload.status !== "sent") {
+        setError(payload.message || payload.error || "Could not send code.");
+        return;
+      }
+
+      setStatus("Code sent. Check your inbox.");
+      showCodeStep("magic", email);
+    } catch {
+      setError("Could not send code. Try again.");
+    } finally {
+      setBusy(emailForm, false);
+    }
+  });
+
+  codeForm?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    if (!(codeForm instanceof HTMLFormElement)) {
+      return;
+    }
+
+    const formData = new FormData(codeForm);
+    const code = String(formData.get("code") || "").trim();
+    if (!code) {
+      setError("Enter the verification code.");
+      return;
+    }
+
+    setError(null);
+    setBusy(codeForm, true);
+
+    try {
+      const { response, payload } =
+        state.mode === "email_verification"
+          ? await postJson("https://app.availabooks.com/api/auth/email-verification/verify", {
+              code,
+              pendingAuthenticationToken:
+                state.pendingAuthenticationToken || "",
+            })
+          : await postJson("https://app.availabooks.com/api/auth/magic/verify", {
+              email: state.email,
+              code,
+            });
+
+      applyAuthResult(response, payload, state.email);
+    } catch {
+      setError("Could not verify code. Try again.");
+    } finally {
+      setBusy(codeForm, false);
+    }
+  });
+
+  useMagicButton?.addEventListener("click", () => {
+    showMagicEmailStep();
+  });
+
+  usePasswordButton?.addEventListener("click", () => {
+    showPasswordStep();
+  });
+
+  restartButton?.addEventListener("click", () => {
+    showCredentialsStep();
+  });
+}
+
+
+  
+document.addEventListener("DOMContentLoaded", () => {
+  renderAuthStatus();
+  initLogin();
+});  
+  
+  
+</script>  
+
+
+
+<div id="login">
+<section class="login" data-login="true"><h1>Sign in</h1><p class="login-lead" data-login-lead="true">Sign in with your email and password, or create an account.</p><form class="login-form" data-login-password-form="true"><label class="login-label" for="login-password-email">Email</label><input id="login-password-email" class="login-input" type="email" name="email" autocomplete="email" required="" autofocus="" placeholder="you@example.com"><label class="login-label" for="login-password">Password</label><input id="login-password" class="login-input" type="password" name="password" autocomplete="current-password" required="" placeholder="••••••••"><button class="login-button" type="submit">Sign in</button><button class="login-button login-button-secondary" type="button" data-login-sign-up="true">Create account</button><button class="login-link" type="button" data-login-use-magic="true">Use a one-time code instead</button></form><form class="login-form" data-login-email-form="true" hidden=""><label class="login-label" for="login-email">Email</label><input id="login-email" class="login-input" type="email" name="email" autocomplete="email" required="" placeholder="you@example.com"><button class="login-button" type="submit">Send code</button><button class="login-link" type="button" data-login-use-password="true">Use password instead</button></form><form class="login-form" data-login-code-form="true" hidden=""><p class="login-hint" data-login-code-hint="true">Enter the 6-digit code we sent to your email.</p><label class="login-label" for="login-code">Verification code</label><input id="login-code" class="login-input" type="text" name="code" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" maxlength="6" required="" placeholder="123456"><button class="login-button" type="submit">Verify and sign in</button><button class="login-link" type="button" data-login-restart="true">Back</button></form><p class="login-error" data-login-error="true" hidden=""></p><p class="login-status" data-login-status="true" hidden=""></p></section>
+</div>
+<div id="logout" style="display: none;">
+<section class="login" data-logout="true"><h1>You're signed in</h1><p class="login-lead">Signed in as <span class="auth-user" data-logout-email=""></span>.</p><div class="logout-actions"><a class="login-button" href="#" data-logout-next="true" hidden="">Return to Book</a><button class="login-button login-button-secondary" type="button" data-logout-button="true">Sign out</button></div><p class="login-error" data-logout-error="true" hidden=""></p></section>
+</div>
+<div id="profile-edit" style="display: none; margin-top:3rem">
+<section class="login" data-profile="true"><h1>Edit profile</h1><p class="login-lead">Update your name.</p><form class="login-form" data-profile-form="true"><label class="login-label" for="profile-first-name">First name</label><input id="profile-first-name" class="login-input" type="text" name="firstName" autocomplete="given-name" placeholder="First name"><label class="login-label" for="profile-last-name">Last name</label><input id="profile-last-name" class="login-input" type="text" name="lastName" autocomplete="family-name" placeholder="Last name"><button class="login-button" type="submit">Save changes</button></form><p class="login-error" data-profile-error="true" hidden=""></p><p class="login-status" data-profile-status="true" hidden=""></p></section>
+</div>
+
+
+<style>
+        .login {
+          max-width: 22rem;
+        }
+        .logout-actions {
+          display: grid;
+          gap: 0.65rem;
+        }
+        .logout-actions .login-button {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          text-decoration: none;
+        }
+        .logout-actions [data-logout-next] {
+          color: white;
+        }
+        .logout-actions [data-logout-next][hidden] {
+          display: none;
+        }
+        .login-lead,
+        .login-hint {
+          color: var(--text-muted);
+          margin: 0 0 1.5rem;
+        }
+        .login-form {
+          display: grid;
+          gap: 0.65rem;
+        }
+        .login-form[hidden] {
+          display: none;
+        }
+        .login-label {
+          font-size: 0.72rem;
+          font-weight: 700;
+          letter-spacing: 0.08em;
+          text-transform: uppercase;
+          color: var(--text-muted);
+        }
+        .login-input {
+          width: 100%;
+          padding: 0.7rem 0.85rem;
+          border: 1px solid var(--border);
+          border-radius: var(--radius-sm);
+          background: var(--surface);
+          color: var(--text);
+          font: inherit;
+        }
+        .login-input:focus {
+          outline: none;
+          border-color: var(--accent);
+          box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.13);
+        }
+        .login-button {
+          margin-top: 0.35rem;
+          padding: 0.7rem 1rem;
+          border: 0;
+          border-radius: var(--radius-sm);
+          background: var(--accent);
+          color: white;
+          font: inherit;
+          font-weight: 600;
+          cursor: pointer;
+        }
+        .login-button:hover {
+          background: var(--accent-strong);
+        }
+        .login-button-secondary {
+          margin-top: 0;
+          background: var(--surface);
+          color: var(--accent);
+          border: 1px solid var(--border);
+        }
+        .login-button-secondary:hover {
+          background: var(--accent-soft);
+          color: var(--accent-strong);
+        }
+        .login-button:disabled {
+          opacity: 0.65;
+          cursor: wait;
+        }
+        .login-link {
+          margin: 0.25rem 0 0;
+          padding: 0;
+          border: 0;
+          background: transparent;
+          color: var(--accent);
+          font: inherit;
+          text-align: left;
+          cursor: pointer;
+        }
+        .login-link:hover {
+          color: var(--accent-strong);
+          text-decoration: underline;
+        }
+        .login-error,
+        .login-status {
+          margin: 1rem 0 0;
+          font-size: 0.92rem;
+        }
+        .login-error {
+          color: var(--danger);
+        }
+        .login-status {
+          color: var(--text-muted);
+        }
+        .login-error[hidden],
+        .login-status[hidden] {
+          display: none;
+        }
+      </style>

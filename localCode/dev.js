@@ -20,4 +20,22 @@ function runLocalCode(){
           loadCrossOrigin(feedUrl)        
         })	    
 }
+
+
+function getUrl(url){
+  console.log("This is the local getUrl---------------------------", url)
+
+  let newUrl=url
+
+  if(url.startsWith("https://system.availabooks.com/2000/02/")){
+    console.log("her we go", location.hostname)
+    newUrl = url.split("system.availabooks.com/2000/02/").join(location.host + "/tools/system-pages/")
+  }
+
+  console.log("new url",newUrl) 
+  return newUrl
+}
+
+
+
 runLocalCode()

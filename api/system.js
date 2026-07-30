@@ -12,10 +12,24 @@ function getUserRecord(){
     if (!response.ok) {throw new Error('Network response was not ok. Could not get user record')}
     return response.json()}).then(data => {
         console.log("data",data)
-    globals.user = data.user
-    console.log("================globals.user",globals.user)
+        globals.user = data.user
+         updateLoginButton()
   })
-  
+
+}
+
+function updateLoginButton(){
+    const loginButton = document.querySelector(".login-button")
+    if(!loginButton){return}
+    if(globals.user){
+        console.log("we are loged in")
+        const name = [globals.user.firstName, globals.user.lastName].filter(Boolean).join(" ")
+        loginButton.title = name || globals.user.email
+        loginButton.classList.add("logged-in")
+    }else{
+        loginButton.title = "Log in"
+        loginButton.classList.remove("logged-in")
+    }
 }
 
 function searchBook(){
@@ -131,7 +145,7 @@ function init(){
     // This function  gets the bookInfo from the correct location and sends it to initialize.  Also loads development code if running locally
 
     // bring in code that runs locally for debugging and testing
-    if(location.hostname.startsWith("127.") || location.host.toLowerCase().startsWith("localhost")){
+    if(location.hostname.startsWith("local.availabooks.com")){
         loadCrossOrigin(`${location.origin}/tools/localCode/dev.js`)
     }else{
         // bring in the book info from the book post
@@ -881,9 +895,12 @@ function makePrompt(evt,props){
 }
 
     function handleLogin(){
-      console.log(`I'm loggin' in!`)
 
-      window.location.href=globals.systemUrl + "/2000/02/login.html?next=" + encodeURI(location.href)
+      window.location.href=getUrl(globals.systemUrl + "/2000/02/login.html?next=" + encodeURI(location.href))
+    }
+
+    function getUrl(url){
+        return url
     }
 
 init()
