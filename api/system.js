@@ -580,16 +580,148 @@ function courseRoleLabel(course) {
 }
 
 /**
- * Returns the book slug for the current host (e.g. sql.availabooks.com → sql).
+ * Extracts a book slug from an availabooks.com host or blog URL.
+ * @param {string | null | undefined} hostOrUrl - Hostname or URL like sql.availabooks.com.
  */
-function currentBookSlug() {
-    const host = location.hostname.toLowerCase()
+function bookSlugFromHost(hostOrUrl) {
+    if (!hostOrUrl || typeof hostOrUrl !== "string") {
+        return null
+    }
+    let host = hostOrUrl.trim().toLowerCase()
+    try {
+        if (host.includes("://")) {
+            host = new URL(host).hostname
+        }
+    } catch {
+        // keep host as trimmed string
+    }
+    host = host.split("/")[0]
     const suffix = ".availabooks.com"
     if (!host.endsWith(suffix)) {
         return null
     }
     const slug = host.slice(0, -suffix.length)
     return slug && !slug.includes(".") ? slug : null
+}
+
+/**
+ * Returns the slug for the book the user is viewing, preferring globals.bookInfo.
+ */
+function currentBookSlug() {
+    const info = globals.bookInfo
+    if (info && typeof info.pro?.slug === "string" && info.pro.slug.trim()) {
+        return info.pro.slug.trim()
+    }
+    const fromBlog = bookSlugFromHost(info?.blogUrl)
+    if (fromBlog) {
+        return fromBlog
+    }
+    return bookSlugFromHost(location.hostname)
+}
+
+/**
+ * Finds the first enrolled course that includes the given book slug.
+ * @param {Array<{ book?: string[]; workosOrganizationId: string }>} courses - Course memberships.
+ * @param {string} bookSlug - Book slug to match.
+ */
+function firstCourseWithBook(courses, bookSlug) {
+    return (
+        courses.find((course) => courseBookSlugs(course).includes(bookSlug)) ||
+        null
+    )
+}
+
+/**
+ * Copies course-select API fields onto globals.user.
+ * @param {{ organizationId?: string | null; role?: string | null; roles?: string[]; permissions?: string[] }} payload - Select response or clear payload.
+ */
+function applyCourseSelection(payload) {
+    if (!globals.user) {
+        return
+    }
+    globals.user.organizationId = payload.organizationId ?? null
+    globals.user.role = payload.role ?? null
+    globals.user.roles = Array.isArray(payload.roles) ? payload.roles : []
+    globals.user.permissions = Array.isArray(payload.permissions)
+        ? payload.permissions
+        : []
+}
+
+/**
+ * Clears the active course on the client so the menu shows no current course.
+ */
+function clearActiveCourse() {
+    applyCourseSelection({
+        organizationId: null,
+        role: null,
+        roles: [],
+        permissions: [],
+    })
+}
+
+/**
+ * Selects a course organization via the API without navigating to a book.
+ * @param {string} organizationId - WorkOS organization id.
+ */
+async function selectCourseOrganization(organizationId) {
+    const response = await fetch(globals.appUrl + "/api/auth/course/select", {
+        method: "POST",
+        credentials: "include",
+        headers: {
+            Accept: "application/json",
+            "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ organizationId }),
+    })
+    const payload = await response.json().catch(() => ({}))
+    if (!response.ok || payload.status !== "selected") {
+        console.error("Could not select course", payload)
+        return false
+    }
+    applyCourseSelection(payload)
+    return true
+}
+
+/**
+ * Auto-selects (or clears) the active course so it matches the current book.
+ * @param {Array<{ book?: string[]; workosOrganizationId: string }>} courses - Course memberships.
+ */
+async function syncActiveCourseToCurrentBook(courses) {
+    if (!globals.user?.id) {
+        return
+    }
+    const bookSlug = currentBookSlug()
+    if (!bookSlug) {
+        return
+    }
+
+    const organizationId = globals.user.organizationId ?? null
+    const current = organizationId
+        ? courses.find((course) => course.workosOrganizationId === organizationId)
+        : null
+    const currentMatches = Boolean(
+        current && courseBookSlugs(current).includes(bookSlug),
+    )
+    if (currentMatches) {
+        return
+    }
+
+    const match = firstCourseWithBook(courses, bookSlug)
+
+    if (!organizationId) {
+        if (!match) {
+            return
+        }
+        await selectCourseOrganization(match.workosOrganizationId)
+        return
+    }
+
+    if (match) {
+        await selectCourseOrganization(match.workosOrganizationId)
+        return
+    }
+
+    clearActiveCourse()
 }
 
 /**
@@ -629,7 +761,7 @@ function renderCourseBookButtons(course, isCurrentCourse) {
             <div class="menu-course-books">
                 <button
                     type="button"
-                    class="menu-course-select"
+                    class="menu-course-select menu-course-select-plain"
                     data-menu-course-select
                     data-organization-id="${orgId}"
                     title="${escapeHtml(`Switch to ${courseTitle}`)}"
@@ -763,6 +895,7 @@ async function updateMenuCourses() {
     try {
         const courses = await getCourses()
         globals.courses = courses
+        await syncActiveCourseToCurrentBook(courses)
         renderMenuCourses(container, courses)
     } catch (err) {
         console.error(err)
@@ -878,12 +1011,30 @@ function renderMenuCourses(container, courses) {
  * @param {string | null} bookSlug - Book slug to open after switching, if any.
  */
 async function selectMenuCourse(organizationId, trigger, bookSlug) {
-    const isButton = trigger instanceof HTMLButtonElement
-    const originalLabel = isButton ? trigger.textContent : null
-    if (isButton) {
-        trigger.disabled = true
-        trigger.textContent = bookSlug ? "Opening…" : "Switching…"
-    } else {
+    /** @type {HTMLButtonElement | null} */
+    let feedbackButton = trigger instanceof HTMLButtonElement ? trigger : null
+    if (!feedbackButton) {
+        const buttons = [...trigger.querySelectorAll("button[data-menu-course-select]")]
+        feedbackButton =
+            (bookSlug
+                ? buttons.find((button) => button.getAttribute("data-book-slug") === bookSlug)
+                : null) ||
+            buttons[0] ||
+            null
+    }
+
+    const originalLabel = feedbackButton ? feedbackButton.textContent : null
+    if (feedbackButton) {
+        feedbackButton.disabled = true
+        feedbackButton.setAttribute("aria-busy", "true")
+        feedbackButton.setAttribute(
+            "aria-label",
+            bookSlug ? "Opening book" : "Switching course",
+        )
+        feedbackButton.innerHTML =
+            '<span class="material-symbols-outlined menu-course-select-spinner" aria-hidden="true">progress_activity</span>'
+    }
+    if (!(trigger instanceof HTMLButtonElement)) {
         trigger.setAttribute("aria-busy", "true")
         trigger.classList.add("menu-course-selecting")
     }
@@ -892,39 +1043,25 @@ async function selectMenuCourse(organizationId, trigger, bookSlug) {
      * Restores the trigger after a failed switch/open.
      */
     function restoreTrigger() {
-        if (isButton) {
-            trigger.disabled = false
-            trigger.textContent = originalLabel || "Switch"
-            return
+        if (feedbackButton) {
+            feedbackButton.disabled = false
+            feedbackButton.removeAttribute("aria-busy")
+            feedbackButton.removeAttribute("aria-label")
+            feedbackButton.textContent = originalLabel || (bookSlug || "Switch")
         }
-        trigger.removeAttribute("aria-busy")
-        trigger.classList.remove("menu-course-selecting")
+        if (!(trigger instanceof HTMLButtonElement)) {
+            trigger.removeAttribute("aria-busy")
+            trigger.classList.remove("menu-course-selecting")
+        }
     }
 
     try {
         const alreadySelected = globals.user?.organizationId === organizationId
         if (!alreadySelected) {
-            const response = await fetch(globals.appUrl + "/api/auth/course/select", {
-                method: "POST",
-                credentials: "include",
-                headers: {
-                    Accept: "application/json",
-                    "Content-Type": "application/json",
-                },
-                body: JSON.stringify({ organizationId }),
-            })
-            const payload = await response.json().catch(() => ({}))
-            if (!response.ok || payload.status !== "selected") {
+            const selected = await selectCourseOrganization(organizationId)
+            if (!selected) {
                 restoreTrigger()
-                console.error("Could not select course", payload)
                 return
-            }
-
-            if (globals.user) {
-                globals.user.organizationId = payload.organizationId
-                globals.user.role = payload.role
-                globals.user.roles = payload.roles
-                globals.user.permissions = payload.permissions
             }
         }
 
