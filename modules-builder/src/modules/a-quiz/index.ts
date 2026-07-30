@@ -1,6 +1,12 @@
+import van from "vanjs-core";
 import { parseQuizText, shuffleItems, type QuizQuestion } from "./parse";
 
+const { button, div, input, label, li, p, section, strong, ul } = van.tags;
+
 const MOUNTED_ATTR = "data-a-quiz-mounted";
+
+/** Default Pro origin when none is set on the pre. Empty string = same origin. */
+const DEFAULT_ORIGIN = "http://localhost:2732";
 
 const STYLES = `
 :host {
@@ -12,6 +18,10 @@ const STYLES = `
 .quiz {
   display: grid;
   gap: 1rem;
+}
+
+.quiz-panel {
+  display: contents;
 }
 
 .progress {
@@ -120,8 +130,41 @@ button:disabled {
   font-weight: 600;
 }
 
-.result[hidden] {
+.submit-status {
+  margin: 0;
+  padding: 0.65rem 0.75rem;
+  border-radius: 4px;
+  border: 1px solid #a5d6a7;
+  background: #e8f5e9;
+  color: #2e7d32;
+  font-weight: 600;
+}
+
+.submit-status.is-error {
+  border-color: #ef9a9a;
+  background: #ffebee;
+  color: #c62828;
+}
+
+.submit-status[hidden] {
   display: none;
+}
+
+button[data-action="submit"] {
+  background: #1a1a1a;
+  border-color: #1a1a1a;
+  color: #fff;
+}
+
+button[data-action="submit"]:hover:not(:disabled) {
+  background: #333;
+}
+
+button[data-action="submit"]:disabled {
+  background: #1a1a1a;
+  border-color: #1a1a1a;
+  color: #fff;
+  opacity: 0.7;
 }
 
 .error {
@@ -131,15 +174,18 @@ button:disabled {
 `;
 
 /**
- * Escapes text for safe insertion into HTML.
- * @param {string} value - Raw text value.
+ * Reads the first non-empty attribute value from the given names.
+ * @param {HTMLElement} el - Element to read attributes from.
+ * @param {string[]} names - Attribute names to try in order.
  */
-function escapeHtml(value: string) {
-  return value
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;");
+function readAttr(el: HTMLElement, names: string[]) {
+  for (const name of names) {
+    const value = el.getAttribute(name);
+    if (value != null && value.trim() !== "") {
+      return value.trim();
+    }
+  }
+  return null;
 }
 
 /**
@@ -151,6 +197,27 @@ function readSourceText(pre: HTMLElement) {
 }
 
 /**
+ * Reads Pro API origin from a pre.a-quiz (or host) element.
+ * @param {HTMLElement} el - Element that may carry origin attrs.
+ */
+function readOrigin(el: HTMLElement) {
+  const raw = readAttr(el, ["data-origin", "origin"]);
+  return (raw ?? DEFAULT_ORIGIN).replace(/\/$/, "");
+}
+
+/**
+ * Builds an absolute API URL under the configured Pro origin.
+ * @param {string} origin - Pro origin (empty = same origin).
+ * @param {string} path - Absolute API path (e.g. /api/submissions/submit).
+ */
+function apiUrl(origin: string, path: string) {
+  if (!origin) {
+    return path;
+  }
+  return new URL(path, `${origin}/`).toString();
+}
+
+/**
  * True when the pre/host has randomize enabled (bare or data- attribute).
  * @param {HTMLElement} el - Element that may carry randomize attrs.
  */
@@ -159,15 +226,19 @@ function hasRandomize(el: HTMLElement) {
 }
 
 /**
- * Builds a host div that replaces the source pre, copying randomize attrs.
+ * Builds a host div that replaces the source pre, copying randomize/origin attrs.
  * @param {HTMLElement} pre - The pre.a-quiz element being replaced.
+ * @param {string} origin - Resolved Pro origin for submissions.
  */
-function createHost(pre: HTMLElement) {
+function createHost(pre: HTMLElement, origin: string) {
   const host = document.createElement("div");
   host.className = "a-quiz";
   host.setAttribute(MOUNTED_ATTR, "");
   if (hasRandomize(pre)) {
     host.setAttribute("data-randomize", pre.getAttribute("data-randomize") ?? "");
+  }
+  if (origin) {
+    host.setAttribute("data-origin", origin);
   }
   return host;
 }
@@ -196,311 +267,369 @@ function correctChoiceKey(question: QuizQuestion) {
 }
 
 /**
- * Builds HTML for the currently visible question.
- * @param {QuizQuestion} question - Parsed question data.
- * @param {number} index - Zero-based display order.
- * @param {number} total - Total number of questions.
- */
-function questionHtml(question: QuizQuestion, index: number, total: number) {
-  const number = index + 1;
-  const name = `q${number}`;
-  const choices = question.choices
-    .map((choice) => {
-      const id = `${name}-${choice.key}`;
-      return `
-          <li class="choice" data-choice-key="${escapeHtml(choice.key)}">
-            <input type="radio" id="${id}" name="${name}" value="${escapeHtml(choice.key)}" />
-            <label for="${id}"><strong>${escapeHtml(choice.key)})</strong> ${escapeHtml(choice.text)}</label>
-          </li>
-        `;
-    })
-    .join("");
-
-  const correctMessage = question.correctMessage
-    ? `<p class="correct-message" data-correct-message hidden>${escapeHtml(question.correctMessage)}</p>`
-    : "";
-
-  return `
-      <p class="progress">Question ${number} of ${total}</p>
-      <section class="question" data-question-index="${index}">
-        <p class="prompt">${escapeHtml(question.prompt)}</p>
-        <ul class="choices">${choices}</ul>
-        <div class="feedback" data-feedback hidden>
-          <p class="feedback-status" data-feedback-status></p>
-          ${correctMessage}
-        </div>
-      </section>
-    `;
-}
-
-/**
- * Builds the finished-state summary after the last question.
- * @param {number} correctCount - Number of correct answers.
- * @param {number} total - Total questions answered.
- */
-function summaryHtml(correctCount: number, total: number) {
-  return `
-      <p class="result" data-result>Score: ${correctCount} / ${total}</p>
-    `;
-}
-
-type QuizState = {
-  questions: QuizQuestion[];
-  index: number;
-  correctCount: number;
-  answered: boolean;
-};
-
-/**
- * Grades the current question, shows feedback, and locks choices.
- * @param {HTMLElement} root - Quiz root inside the shadow tree.
- * @param {QuizState} state - Mutable quiz progress state.
- */
-function checkCurrentAnswer(root: HTMLElement, state: QuizState) {
-  const question = state.questions[state.index];
-  if (!question || state.answered) {
-    return;
-  }
-
-  const section = root.querySelector<HTMLElement>(".question");
-  if (!section) {
-    return;
-  }
-
-  const selected = section.querySelector<HTMLInputElement>(
-    'input[type="radio"]:checked',
-  );
-  if (!selected) {
-    return;
-  }
-
-  const correctKey = correctChoiceKey(question);
-  const isCorrect = Boolean(correctKey && selected.value === correctKey);
-  if (isCorrect) {
-    state.correctCount += 1;
-  }
-  state.answered = true;
-
-  section.querySelectorAll<HTMLInputElement>('input[type="radio"]').forEach((input) => {
-    input.disabled = true;
-  });
-
-  section.querySelectorAll<HTMLElement>(".choice").forEach((choiceEl) => {
-    const key = choiceEl.getAttribute("data-choice-key");
-    choiceEl.classList.toggle("is-correct-choice", key === correctKey);
-    choiceEl.classList.toggle(
-      "is-wrong-choice",
-      key === selected.value && key !== correctKey,
-    );
-  });
-
-  const feedback = section.querySelector<HTMLElement>("[data-feedback]");
-  const status = section.querySelector<HTMLElement>("[data-feedback-status]");
-  const message = section.querySelector<HTMLElement>("[data-correct-message]");
-  if (feedback && status) {
-    feedback.hidden = false;
-    feedback.classList.toggle("is-correct", isCorrect);
-    feedback.classList.toggle("is-incorrect", !isCorrect);
-    status.textContent = isCorrect ? "Correct" : "Incorrect";
-  }
-  if (message) {
-    message.hidden = false;
-  }
-
-  updateActionButtons(root, state);
-}
-
-/**
- * Advances to the next question, or shows the final score.
- * @param {HTMLElement} host - Mounted quiz host with shadow root.
- * @param {string} sourceText - Raw quiz markup.
- * @param {boolean} randomize - When true, shuffles question order on reset.
- * @param {QuizState} state - Mutable quiz progress state.
- * @param {HTMLElement} root - Quiz root inside the shadow tree.
- */
-function goNext(
-  host: HTMLElement,
-  sourceText: string,
-  randomize: boolean,
-  state: QuizState,
-  root: HTMLElement,
-) {
-  if (!state.answered) {
-    return;
-  }
-
-  if (state.index >= state.questions.length - 1) {
-    paintSummary(root, state);
-    return;
-  }
-
-  state.index += 1;
-  state.answered = false;
-  paintQuestion(host, sourceText, randomize, state, root);
-}
-
-/**
- * Syncs Check / Next / Restart button labels and disabled state.
- * @param {HTMLElement} root - Quiz root inside the shadow tree.
- * @param {QuizState} state - Mutable quiz progress state.
- * @param {boolean} [finished] - When true, only Restart is shown.
- */
-function updateActionButtons(root: HTMLElement, state: QuizState, finished = false) {
-  const checkBtn = root.querySelector<HTMLButtonElement>('[data-action="check"]');
-  const nextBtn = root.querySelector<HTMLButtonElement>('[data-action="next"]');
-  const resetBtn = root.querySelector<HTMLButtonElement>('[data-action="reset"]');
-
-  if (finished) {
-    if (checkBtn) {
-      checkBtn.hidden = true;
-    }
-    if (nextBtn) {
-      nextBtn.hidden = true;
-    }
-    if (resetBtn) {
-      resetBtn.hidden = false;
-    }
-    return;
-  }
-
-  const section = root.querySelector(".question");
-  const hasSelection = Boolean(
-    section?.querySelector('input[type="radio"]:checked'),
-  );
-  const isLast = state.index >= state.questions.length - 1;
-
-  if (checkBtn) {
-    checkBtn.hidden = state.answered;
-    checkBtn.disabled = !hasSelection;
-  }
-  if (nextBtn) {
-    nextBtn.hidden = !state.answered;
-    nextBtn.textContent = isLast ? "See results" : "Next question";
-  }
-  if (resetBtn) {
-    resetBtn.hidden = true;
-  }
-}
-
-/**
- * Renders the current question into an existing quiz root.
- * @param {HTMLElement} host - Mounted quiz host with shadow root.
- * @param {string} sourceText - Raw quiz markup.
- * @param {boolean} randomize - When true, shuffles question order on reset.
- * @param {QuizState} state - Mutable quiz progress state.
- * @param {HTMLElement} root - Quiz root inside the shadow tree.
- */
-function paintQuestion(
-  host: HTMLElement,
-  sourceText: string,
-  randomize: boolean,
-  state: QuizState,
-  root: HTMLElement,
-) {
-  const question = state.questions[state.index];
-  if (!question) {
-    return;
-  }
-
-  root.innerHTML =
-    questionHtml(question, state.index, state.questions.length) +
-    `
-      <div class="actions">
-        <button type="button" data-action="check" disabled>Check answer</button>
-        <button type="button" data-action="next" hidden>Next question</button>
-        <button type="button" data-action="reset" hidden>Restart</button>
-      </div>
-    `;
-
-  const section = root.querySelector(".question");
-  section?.addEventListener("change", () => {
-    if (!state.answered) {
-      updateActionButtons(root, state);
-    }
-  });
-
-  root.querySelector(".actions")?.addEventListener("click", (event) => {
-    const target = event.target;
-    if (!(target instanceof HTMLElement)) {
-      return;
-    }
-    const action = target.getAttribute("data-action");
-    if (action === "check") {
-      checkCurrentAnswer(root, state);
-    } else if (action === "next") {
-      goNext(host, sourceText, randomize, state, root);
-    } else if (action === "reset") {
-      renderQuiz(host, sourceText, randomize);
-    }
-  });
-
-  updateActionButtons(root, state);
-}
-
-/**
- * Replaces the quiz body with the final score and a Restart control.
- * @param {HTMLElement} root - Quiz root inside the shadow tree.
- * @param {QuizState} state - Mutable quiz progress state.
- */
-function paintSummary(root: HTMLElement, state: QuizState) {
-  root.innerHTML =
-    summaryHtml(state.correctCount, state.questions.length) +
-    `
-      <div class="actions">
-        <button type="button" data-action="check" hidden>Check answer</button>
-        <button type="button" data-action="next" hidden>Next question</button>
-        <button type="button" data-action="reset">Restart</button>
-      </div>
-    `;
-  updateActionButtons(root, state, true);
-}
-
-/**
- * Parses source text, optionally shuffles, and paints the quiz UI into the host.
- * @param {HTMLElement} host - Mounted quiz host with shadow root.
+ * Parses and optionally shuffles quiz source text.
  * @param {string} sourceText - Raw quiz markup.
  * @param {boolean} randomize - When true, shuffles question order.
  */
-function renderQuiz(host: HTMLElement, sourceText: string, randomize: boolean) {
+function loadQuestions(sourceText: string, randomize: boolean) {
+  const parsed = parseQuizText(sourceText);
+  return randomize ? shuffleItems(parsed) : parsed;
+}
+
+type QuizAnswer = {
+  index: number;
+  prompt: string;
+  selectedKey: string;
+  correctKey: string | undefined;
+  correct: boolean;
+};
+
+/**
+ * Builds the reactive quiz UI for one mounted host.
+ * @param {string} sourceText - Raw quiz markup.
+ * @param {boolean} randomize - When true, shuffles question order on start/restart.
+ * @param {string} origin - Pro origin for submission API calls.
+ */
+function QuizApp(sourceText: string, randomize: boolean, origin: string) {
+  const parseError = van.state<string | null>(null);
+  const questions = van.state<QuizQuestion[]>([]);
+  const index = van.state(0);
+  const correctCount = van.state(0);
+  const answers = van.state<QuizAnswer[]>([]);
+  const answered = van.state(false);
+  const selectedKey = van.state<string | null>(null);
+  const isCorrect = van.state(false);
+  const finished = van.state(false);
+  const submitted = van.state(false);
+  const submitting = van.state(false);
+  const submitMessage = van.state<string | null>(null);
+  const submitFailed = van.state(false);
+
+  /**
+   * Loads questions and resets progress (used on mount and Restart).
+   */
+  const restart = () => {
+    try {
+      questions.val = loadQuestions(sourceText, randomize);
+      parseError.val = null;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      parseError.val = message;
+      questions.val = [];
+    }
+    index.val = 0;
+    correctCount.val = 0;
+    answers.val = [];
+    answered.val = false;
+    selectedKey.val = null;
+    isCorrect.val = false;
+    finished.val = false;
+    submitted.val = false;
+    submitting.val = false;
+    submitMessage.val = null;
+    submitFailed.val = false;
+  };
+
+  /**
+   * Grades the current selection and locks choices.
+   */
+  const checkAnswer = () => {
+    const question = questions.val[index.val];
+    if (!question || answered.val || selectedKey.val == null) {
+      return;
+    }
+
+    const correctKey = correctChoiceKey(question);
+    const correct = Boolean(correctKey && selectedKey.val === correctKey);
+    if (correct) {
+      correctCount.val += 1;
+    }
+    answers.val = [
+      ...answers.val,
+      {
+        index: index.val,
+        prompt: question.prompt,
+        selectedKey: selectedKey.val,
+        correctKey,
+        correct,
+      },
+    ];
+    isCorrect.val = correct;
+    answered.val = true;
+  };
+
+  /**
+   * Advances to the next question, or shows the final score.
+   */
+  const goNext = () => {
+    if (!answered.val) {
+      return;
+    }
+    if (index.val >= questions.val.length - 1) {
+      finished.val = true;
+      return;
+    }
+    index.val += 1;
+    answered.val = false;
+    selectedKey.val = null;
+    isCorrect.val = false;
+  };
+
+  /**
+   * Posts the quiz result to Pro `/api/submissions/submit`.
+   */
+  const submitQuiz = async () => {
+    if (submitted.val || submitting.val) {
+      return;
+    }
+
+    submitting.val = true;
+    submitFailed.val = false;
+    submitMessage.val = null;
+
+    try {
+      const response = await fetch(apiUrl(origin, "/api/submissions/submit"), {
+        method: "POST",
+        credentials: "include",
+        headers: {
+          Accept: "application/json",
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          type: "a-quiz",
+          score: {
+            correct: correctCount.val,
+            total: questions.val.length,
+          },
+          answers: answers.val,
+        }),
+      });
+
+      const payload = await response.json().catch(() => null);
+
+      if (!response.ok) {
+        const errorCode =
+          payload && typeof payload === "object" && "error" in payload
+            ? String((payload as { error: unknown }).error)
+            : `HTTP ${response.status}`;
+        submitFailed.val = true;
+        submitMessage.val =
+          response.status === 401
+            ? "Sign in to submit your quiz."
+            : `Could not submit quiz (${errorCode}).`;
+        return;
+      }
+
+      submitted.val = true;
+      submitFailed.val = false;
+      submitMessage.val = "Your quiz has been submitted.";
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      submitFailed.val = true;
+      submitMessage.val = `Could not reach Pro (${message}).`;
+    } finally {
+      submitting.val = false;
+    }
+  };
+
+  restart();
+
+  /**
+   * Renders one question with choices, feedback, and Check/Next actions.
+   * @param {QuizQuestion} question - Current question.
+   * @param {number} questionIndex - Zero-based display order.
+   * @param {number} total - Total number of questions.
+   */
+  const questionView = (
+    question: QuizQuestion,
+    questionIndex: number,
+    total: number,
+  ) => {
+    const number = questionIndex + 1;
+    const name = `q${number}`;
+    const correctKey = correctChoiceKey(question);
+    const isLast = questionIndex >= total - 1;
+
+    return [
+      p({ class: "progress" }, () => `Question ${number} of ${total}`),
+      section(
+        { class: "question" },
+        p({ class: "prompt" }, question.prompt),
+        ul(
+          { class: "choices" },
+          ...question.choices.map((choice) => {
+            const id = `${name}-${choice.key}`;
+            return li(
+              {
+                class: () => {
+                  const classes = ["choice"];
+                  if (answered.val) {
+                    if (choice.key === correctKey) {
+                      classes.push("is-correct-choice");
+                    }
+                    if (
+                      choice.key === selectedKey.val &&
+                      choice.key !== correctKey
+                    ) {
+                      classes.push("is-wrong-choice");
+                    }
+                  }
+                  return classes.join(" ");
+                },
+              },
+              input({
+                type: "radio",
+                id,
+                name,
+                value: choice.key,
+                disabled: () => answered.val,
+                onchange: () => {
+                  if (!answered.val) {
+                    selectedKey.val = choice.key;
+                  }
+                },
+              }),
+              label(
+                { for: id },
+                strong(`${choice.key})`),
+                ` ${choice.text}`,
+              ),
+            );
+          }),
+        ),
+        div(
+          {
+            class: () => {
+              const classes = ["feedback"];
+              if (answered.val) {
+                classes.push(isCorrect.val ? "is-correct" : "is-incorrect");
+              }
+              return classes.join(" ");
+            },
+            hidden: () => !answered.val,
+          },
+          p(
+            { class: "feedback-status" },
+            () => (isCorrect.val ? "Correct" : "Incorrect"),
+          ),
+          question.correctMessage
+            ? p(
+                {
+                  class: "correct-message",
+                  hidden: () => !answered.val,
+                },
+                question.correctMessage,
+              )
+            : null,
+        ),
+      ),
+      div(
+        { class: "actions" },
+        button(
+          {
+            type: "button",
+            "data-action": "check",
+            hidden: () => answered.val,
+            disabled: () => selectedKey.val == null,
+            onclick: checkAnswer,
+          },
+          "Check answer",
+        ),
+        button(
+          {
+            type: "button",
+            "data-action": "next",
+            hidden: () => !answered.val,
+            onclick: goNext,
+          },
+          isLast ? "See results" : "Next question",
+        ),
+      ),
+    ];
+  };
+
+  /**
+   * Renders the finished score plus Submit / Restart controls.
+   */
+  const summaryView = () =>
+    [
+      p(
+        { class: "result" },
+        () => `Score: ${correctCount.val} / ${questions.val.length}`,
+      ),
+      p(
+        {
+          class: () =>
+            submitFailed.val ? "submit-status is-error" : "submit-status",
+          hidden: () => submitMessage.val == null,
+        },
+        () => submitMessage.val ?? "",
+      ),
+      div(
+        { class: "actions" },
+        button(
+          {
+            type: "button",
+            "data-action": "submit",
+            disabled: () => submitted.val || submitting.val,
+            onclick: () => void submitQuiz(),
+          },
+          () => {
+            if (submitting.val) {
+              return "Submitting…";
+            }
+            return submitted.val ? "Submitted" : "Submit quiz";
+          },
+        ),
+        button(
+          {
+            type: "button",
+            "data-action": "reset",
+            onclick: restart,
+          },
+          "Restart",
+        ),
+      ),
+    ];
+
+  return div(
+    { class: "quiz" },
+    () => {
+      if (parseError.val) {
+        return p({ class: "error" }, `a-quiz error: ${parseError.val}`);
+      }
+      if (finished.val) {
+        return div({ class: "quiz-panel" }, ...summaryView());
+      }
+      const question = questions.val[index.val];
+      if (!question) {
+        return p({ class: "error" }, "a-quiz error: no questions found");
+      }
+      return div(
+        { class: "quiz-panel" },
+        ...questionView(question, index.val, questions.val.length),
+      );
+    },
+  );
+}
+
+/**
+ * Parses source text and mounts the VanJS quiz UI into the host shadow root.
+ * @param {HTMLElement} host - Mounted quiz host with shadow root.
+ * @param {string} sourceText - Raw quiz markup.
+ * @param {boolean} randomize - When true, shuffles question order.
+ * @param {string} origin - Pro origin for submission API calls.
+ */
+function renderQuiz(
+  host: HTMLElement,
+  sourceText: string,
+  randomize: boolean,
+  origin: string,
+) {
   const shadow = ensureShadow(host);
   shadow.querySelector(".quiz")?.remove();
   shadow.querySelector(".error")?.remove();
-
-  let questions: QuizQuestion[];
-  try {
-    const parsed = parseQuizText(sourceText);
-    questions = randomize ? shuffleItems(parsed) : parsed;
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    const errorEl = document.createElement("p");
-    errorEl.className = "error";
-    errorEl.textContent = `a-quiz error: ${message}`;
-    shadow.append(errorEl);
-    return;
-  }
-
-  const state: QuizState = {
-    questions,
-    index: 0,
-    correctCount: 0,
-    answered: false,
-  };
-
-  const root = document.createElement("div");
-  root.className = "quiz";
-  shadow.append(root);
-
-  root.addEventListener("click", (event) => {
-    const target = event.target;
-    if (!(target instanceof HTMLElement)) {
-      return;
-    }
-    if (target.getAttribute("data-action") === "reset") {
-      renderQuiz(host, sourceText, randomize);
-    }
-  });
-
-  paintQuestion(host, sourceText, randomize, state, root);
+  van.add(shadow, QuizApp(sourceText, randomize, origin));
 }
 
 /**
@@ -514,10 +643,11 @@ export function mountAQuiz(pre: HTMLElement) {
 
   const sourceText = readSourceText(pre);
   const randomize = hasRandomize(pre);
-  const host = createHost(pre);
+  const origin = readOrigin(pre);
+  const host = createHost(pre, origin);
   pre.replaceWith(host);
   ensureShadow(host);
-  renderQuiz(host, sourceText, randomize);
+  renderQuiz(host, sourceText, randomize, origin);
   return host;
 }
 

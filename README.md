@@ -171,3 +171,29 @@ To build the TOC:  open
 
 https://book1014.blogspot.com/1970/01/table-of-contents.html?deploymentId=<deploymentId from deploymentId.txt>  
 This will scan the book for numbered chapters then updated the toc with the correct data
+
+
+## Certificate for local.availabooks.com
+
+Generate certs (macOS, Linux, Windows):
+
+```bash
+python tools/create-cert.py
+python tools/create-cert.py --install-mkcert --install-ca
+python tools/create-cert.py --dir ~/.local/share/live-server-certs
+```
+
+Default output: `~/.local/share/live-server-certs/cert.pem` and `key.pem`.
+
+Put these certs in the .vscode/settings.json file at the root of our project, probs in the availabooks dir.
+
+```json
+"liveServer.settings.https": {
+    "enable": true,
+    "cert": "/absolute/path/to/.local/share/live-server-certs/cert.pem",
+    "key": "/absolute/path/to/.local/share/live-server-certs/key.pem",
+    "passphrase": ""
+},
+"liveServer.settings.host": "local.availabooks.com",
+"liveServer.settings.port": 5500
+```
