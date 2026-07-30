@@ -1,6 +1,6 @@
 const globals = {
     systemUrl: "https://system.availabooks.com",
-    appUrl: "https://dev.availabooks.com:2732", // "https://app.availabooks.com",
+    appUrl: "https://app.availabooks.com",
     bookInfo: null,
     pageData: {},
     variables: {},
