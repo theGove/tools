@@ -1,230 +1,236 @@
-const globals={
-    systemUrl:"https://system.availabooks.com",
-    appUrl:"https://app.availabooks.com",
-    bookInfo:null,
-    pageData:{},
-    variables:{},
-    user:{}
+const globals = {
+    systemUrl: "https://system.availabooks.com",
+    appUrl: "https://dev.availabooks.com:2732", // "https://app.availabooks.com",
+    bookInfo: null,
+    pageData: {},
+    variables: {},
+    user: {},
+    courses: [],
 }
 
-function getUserRecord(){
-  fetch(globals.appUrl + "/api/auth/me", {credentials: "include" }).then(response => {
-    if (!response.ok) {throw new Error('Network response was not ok. Could not get user record')}
-    return response.json()}).then(data => {
-        console.log("data",data)
+/**
+ * Loads the signed-in user and refreshes login + course UI in the menu.
+ */
+function getUserRecord() {
+    fetch(globals.appUrl + "/api/auth/me", { credentials: "include" }).then(response => {
+        if (!response.ok) { throw new Error('Network response was not ok. Could not get user record') }
+        return response.json()
+    }).then(data => {
+        console.log("data", data)
         globals.user = data.user
-         updateLoginButton()
-  })
+        updateLoginButton()
+        updateMenuCourses()
+    })
 
 }
 
-function updateLoginButton(){
+function updateLoginButton() {
     const loginButton = document.querySelector(".login-button")
-    if(!loginButton){return}
-    if(globals.user){
+    if (!loginButton) { return }
+    if (globals.user) {
         console.log("we are loged in")
         const name = [globals.user.firstName, globals.user.lastName].filter(Boolean).join(" ")
         loginButton.title = name || globals.user.email
         loginButton.classList.add("logged-in")
-    }else{
+    } else {
         loginButton.title = "Log in"
         loginButton.classList.remove("logged-in")
     }
 }
 
-function searchBook(){
-  fetch(`/feeds/posts/default?alt=json&label=chapter&v=2&orderby=relevance&max-results=100&q=label%3Achapter+${encodeURIComponent(tag("search").value)}&start-index=1&rewriteforssl=true`)
-  .then(response => {
-    if (!response.ok) {
-      throw new Error('Network response was not ok');
-    }
-    return response.json();
-  })
-  .then(data => {
-    //console.log(data); 
-    tag("search-results").replaceChildren()
-    if(data.feed.entry){
-      for(entry of data.feed.entry){
-        buildChapterSearchResult(entry)
-      }
-    }else{
-      // add no results found message if needed
-        const chapterResultDiv = document.createElement("div");
-        chapterResultDiv.appendChild(document.createTextNode("No Results Found"))
-        tag("search-results").appendChild(chapterResultDiv)
-    }
+function searchBook() {
+    fetch(`/feeds/posts/default?alt=json&label=chapter&v=2&orderby=relevance&max-results=100&q=label%3Achapter+${encodeURIComponent(tag("search").value)}&start-index=1&rewriteforssl=true`)
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Network response was not ok');
+            }
+            return response.json();
+        })
+        .then(data => {
+            //console.log(data); 
+            tag("search-results").replaceChildren()
+            if (data.feed.entry) {
+                for (entry of data.feed.entry) {
+                    buildChapterSearchResult(entry)
+                }
+            } else {
+                // add no results found message if needed
+                const chapterResultDiv = document.createElement("div");
+                chapterResultDiv.appendChild(document.createTextNode("No Results Found"))
+                tag("search-results").appendChild(chapterResultDiv)
+            }
 
-  })
-  
+        })
+
 }
-function findLink(links){
-  // takes a set of links from a blogger feed and returns the one with labeled "alternate"
-  for(const link of links){
-    if(link.rel==='alternate'){
-      return link
+function findLink(links) {
+    // takes a set of links from a blogger feed and returns the one with labeled "alternate"
+    for (const link of links) {
+        if (link.rel === 'alternate') {
+            return link
+        }
     }
-  }
 }
-function buildChapterSearchResult(entry){
-      //console.log(entry)
-      const tempDiv = document.createElement("div");
-      tempDiv.innerHTML=entry.content.$t
-      
-      const chapterResultLink = document.createElement("a");
-      chapterResultLink.className="chapter-result-link"
-      chapterResultLink.href=findLink(entry.link).href.split("/").pop()
-      chapterResultLink.style.color="black"
-      const chapterResultDiv = document.createElement("div");
-      chapterResultDiv.className="search-result"
-      const resultTitleDiv = document.createElement("div");
-      resultTitleDiv.className = "search-result-title"
-      resultTitleDiv.appendChild(document.createTextNode(entry.title.$t))
-      chapterResultDiv.appendChild(resultTitleDiv)
-      const searchTerm = tag("search").value
-      for(const result of findPhraseWithContext(tempDiv.innerText, searchTerm,5)){
-      	console.log("result:",result)
-        const regex = new RegExp(searchTerm, "gi"); 
-        const markedResult =   result.replace(regex, `<span class="search-term">${searchTerm}</span>`);     
+function buildChapterSearchResult(entry) {
+    //console.log(entry)
+    const tempDiv = document.createElement("div");
+    tempDiv.innerHTML = entry.content.$t
+
+    const chapterResultLink = document.createElement("a");
+    chapterResultLink.className = "chapter-result-link"
+    chapterResultLink.href = findLink(entry.link).href.split("/").pop()
+    chapterResultLink.style.color = "black"
+    const chapterResultDiv = document.createElement("div");
+    chapterResultDiv.className = "search-result"
+    const resultTitleDiv = document.createElement("div");
+    resultTitleDiv.className = "search-result-title"
+    resultTitleDiv.appendChild(document.createTextNode(entry.title.$t))
+    chapterResultDiv.appendChild(resultTitleDiv)
+    const searchTerm = tag("search").value
+    for (const result of findPhraseWithContext(tempDiv.innerText, searchTerm, 5)) {
+        console.log("result:", result)
+        const regex = new RegExp(searchTerm, "gi");
+        const markedResult = result.replace(regex, `<span class="search-term">${searchTerm}</span>`);
         const resultLineDiv = document.createElement("div");
         resultLineDiv.className = "search-result-line"
         resultLineDiv.innerHTML = markedResult
         chapterResultDiv.appendChild(resultLineDiv)
-        
-      }      
-      
-      
-      chapterResultLink.appendChild(chapterResultDiv)
-      tag("search-results").appendChild(chapterResultLink)
-      
+
+    }
+
+
+    chapterResultLink.appendChild(chapterResultDiv)
+    tag("search-results").appendChild(chapterResultLink)
+
 
 }
 
-function entryHasLabel(entry, label){
-  for(const category of entry.category){
-    if(category.term===label){
-      return true
+function entryHasLabel(entry, label) {
+    for (const category of entry.category) {
+        if (category.term === label) {
+            return true
+        }
     }
-  }
-  return false
+    return false
 }
 
 
 function findPhraseWithContext(text, phrase, contextCount = 10) {
-  const words = text.split(/\s+/);
-  const phraseWords = phrase.toLowerCase().split(/\s+/);
-  const results = [];
+    const words = text.split(/\s+/);
+    const phraseWords = phrase.toLowerCase().split(/\s+/);
+    const results = [];
 
-  for (let i = 0; i <= words.length - phraseWords.length; i++) {
-    // Check if the next sequence of words matches the phrase
-    let match = true;
-    for (let j = 0; j < phraseWords.length; j++) {
-      const cleanWord = words[i + j].replace(/[^\w\s]/g, "").toLowerCase();
-      if (cleanWord !== phraseWords[j]) {
-        match = false;
-        break;
-      }
+    for (let i = 0; i <= words.length - phraseWords.length; i++) {
+        // Check if the next sequence of words matches the phrase
+        let match = true;
+        for (let j = 0; j < phraseWords.length; j++) {
+            const cleanWord = words[i + j].replace(/[^\w\s]/g, "").toLowerCase();
+            if (cleanWord !== phraseWords[j]) {
+                match = false;
+                break;
+            }
+        }
+
+        if (match) {
+            // Get context: 10 words before the phrase start, 10 words after the phrase end
+            const start = Math.max(0, i - contextCount);
+            const end = i + phraseWords.length + contextCount;
+
+            const snippet = words.slice(start, end).join(" ");
+            results.push(snippet);
+
+            // Move index forward by phrase length to avoid overlapping sub-matches
+            i += phraseWords.length - 1;
+        }
     }
 
-    if (match) {
-      // Get context: 10 words before the phrase start, 10 words after the phrase end
-      const start = Math.max(0, i - contextCount);
-      const end = i + phraseWords.length + contextCount;
-      
-      const snippet = words.slice(start, end).join(" ");
-      results.push(snippet);
-      
-      // Move index forward by phrase length to avoid overlapping sub-matches
-      i += phraseWords.length - 1;
-    }
-  }
-
-  return results;
+    return results;
 }
 
-function init(){
+function init() {
     // This function  gets the bookInfo from the correct location and sends it to initialize.  Also loads development code if running locally
 
     // bring in code that runs locally for debugging and testing
-    if(location.hostname.startsWith("local.availabooks.com")){
+    if (location.hostname.startsWith("local.availabooks.com")) {
         loadCrossOrigin(`${location.origin}/tools/localCode/dev.js`)
-    }else{
+    } else {
         // bring in the book info from the book post
-        loadCrossOrigin(`${origin}/feeds/posts/default/-/book?alt=json-in-script&max-results=1&callback=initialize`); 
-    }    
+        loadCrossOrigin(`${origin}/feeds/posts/default/-/book?alt=json-in-script&max-results=1&callback=initialize`);
+    }
 
 }
 
-function initialize(bookInfoFeed){
+function initialize(bookInfoFeed) {
 
     globals.bookInfo = JSON.parse(bookInfoFeed.feed.entry[0].content.$t)
-    console.log("globals.bookInfo",globals.bookInfo)
-    
+    console.log("globals.bookInfo", globals.bookInfo)
+
     getUserRecord()
     setVariables()
-    buildMenu() 
+    buildMenu()
     configureBook()
-    
+
     // set up searching the full content of book
-     tag("search").addEventListener("keydown", function(event) {
-      if (event.key === "Enter") {
-        event.preventDefault(); 
-        searchBook();
-      }
+    tag("search").addEventListener("keydown", function (event) {
+        if (event.key === "Enter") {
+            event.preventDefault();
+            searchBook();
+        }
     });
     tag("search-button").addEventListener("click", searchBook)
-    
-    
+
+
     // Set a function onscroll - this will activate if the user scrolls
     //dims the buttons when the user scrolls
     window.onscroll = setDimness
 
-    window.addEventListener('hashchange', function() {
-        if(window.location.hash){
+    window.addEventListener('hashchange', function () {
+        if (window.location.hash) {
             scroll_to(window.location.hash.substring(1))
         } else {
             showSection(1)
         }
-        
-      });
+
+    });
 
     window.addEventListener('resize', setTopMargin);
     setTopMargin()
     //console.log("hash", window.location.hash)
-    if(window.location.hash){
+    if (window.location.hash) {
         scroll_to(window.location.hash.substring(1))
-    }else{
+    } else {
         showSection(1)
     }
 }
 
-function configureBook(){
+function configureBook() {
     document.body.style.setProperty('--font-zoom', globals.variables.fontZoom);
 }
 
-function setVariables(){
+function setVariables() {
     //read the globals.variables from local storage.  if not present create them and save to local storage
     const pathArray = window.location.pathname.split("/")
-    globals.variables.year=pathArray[1]
-    globals.variables.month=pathArray[2]
+    globals.variables.year = pathArray[1]
+    globals.variables.month = pathArray[2]
 
     const storedVariables = localStorage.getItem("book-settings")
-    if(storedVariables===null){
+    if (storedVariables === null) {
         // storedVariables do not yet exits
-        globals.variables.fontZoom=1
-        localStorage.setItem(`book-settings`,JSON.stringify(globals.variables))
-    }else{
-        globals.variables=JSON.parse(storedVariables)
+        globals.variables.fontZoom = 1
+        localStorage.setItem(`book-settings`, JSON.stringify(globals.variables))
+    } else {
+        globals.variables = JSON.parse(storedVariables)
     }
 
     //console.log("globals.variables",globals.variables)
     //console.log("storedVariables",storedVariables)
-  
+
 }
 
 function setDimness() {
     const { scrollTop, scrollHeight, clientHeight } = document.documentElement;
     //document.documentElement.scrollTop+document.documentElement.clientHeight,document.documentElement.scrollHeight
-    if (scrollTop < 20 || Math.abs((scrollTop + clientHeight)-scrollHeight)<5) {
+    if (scrollTop < 20 || Math.abs((scrollTop + clientHeight) - scrollHeight) < 5) {
         dimButtons('bright')
         dimHeader('bright')
     } else {
@@ -235,49 +241,49 @@ function setDimness() {
 }
 
 
-function setTopMargin(){
-     
+function setTopMargin() {
+
     const header = document.getElementsByTagName("header")[0]
-    if(header){
-      const margin = header.offsetHeight 
-      for(section of document.querySelectorAll('.chapter-section')){
-          section.style.marginTop =  `calc((${margin * 1.1}px  * var(--font-zoom))`
-      }
+    if (header) {
+        const margin = header.offsetHeight
+        for (section of document.querySelectorAll('.chapter-section')) {
+            section.style.marginTop = `calc((${margin * 1.1}px  * var(--font-zoom))`
+        }
     }
 
 }
 
-function scroll_to(id, recordHash=true){
+function scroll_to(id, recordHash = true) {
     // Scroll to the specified element, being sure it is visible
     //console.log("scrollTo", id)
     hideMenu()
     let element = tag(id)
-    if(!element){return}
+    if (!element) { return }
     while (!element.className.includes('chapter-section')) {
         element = element.parentElement;
-        if(!element){return}
+        if (!element) { return }
     }
 
-    showSection(element.id.split('-')[1],false)
-    
-    if(id !== element.id){
-      // this is not a section, scroll to it  
-      tag(id).scrollIntoView({ behavior: 'smooth', block: 'start' });
+    showSection(element.id.split('-')[1], false)
+
+    if (id !== element.id) {
+        // this is not a section, scroll to it  
+        tag(id).scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
 
-    if(recordHash){
+    if (recordHash) {
         window.location.hash = '#' + id
     }
 
 }
 
-function tag(id){
+function tag(id) {
     return document.getElementById(id)
 }
 
-function dimButtons(brightOrDim){
-    for(const button of document.querySelectorAll('.nav')){
-        if(brightOrDim === 'bright'){
+function dimButtons(brightOrDim) {
+    for (const button of document.querySelectorAll('.nav')) {
+        if (brightOrDim === 'bright') {
             button.classList.remove("dim-button")
         } else {
             // Dim the button
@@ -285,9 +291,9 @@ function dimButtons(brightOrDim){
         }
     }
 }
-function dimHeader(brightOrDim){
-    for(const header of document.getElementsByTagName("header")){
-        if(brightOrDim === 'bright'){
+function dimHeader(brightOrDim) {
+    for (const header of document.getElementsByTagName("header")) {
+        if (brightOrDim === 'bright') {
             header.classList.remove("dim-header")
         } else {
             // Dim the button
@@ -295,7 +301,7 @@ function dimHeader(brightOrDim){
         }
     }
 }
-function showSection(section, recordHash=true){
+function showSection(section, recordHash = true) {
     // section can be a number or 'next' or 'prior' or 'all'
     let sectionsToHide = []
     let sectionToShow = 1
@@ -303,21 +309,21 @@ function showSection(section, recordHash=true){
     let buttonNavigatgion = false
     const sections = document.querySelectorAll('.chapter-section')
 
-    if(sections.length === 0){return}
+    if (sections.length === 0) { return }
 
-    if(section === 'all'){  // not currently used or tested
-        for(const elem of sections){
+    if (section === 'all') {  // not currently used or tested
+        for (const elem of sections) {
             elem.style.display = 'block'
         }
         return
     }
 
-    
+
 
 
     // find the section to hide
-    for(const elem of sections){
-        if(elem.style.display !== 'none'){
+    for (const elem of sections) {
+        if (elem.style.display !== 'none') {
             currentlyShowing = parseInt(elem.id.split('-')[1])
             //console.log("currentlyShowing", currentlyShowing)
             sectionsToHide.push(currentlyShowing)
@@ -325,90 +331,90 @@ function showSection(section, recordHash=true){
     }
 
     // find section to show
-    if(isNaN(section)){
+    if (isNaN(section)) {
         // section s string and should be 'next' or 'prior'
         buttonNavigatgion = true
-        if(section === 'next'){
+        if (section === 'next') {
             sectionToShow = currentlyShowing + 1
-        }else{
+        } else {
             //section === 'prior'
             sectionToShow = currentlyShowing - 1
         }
-    }else{
+    } else {
         // section numeric
         sectionToShow = section
     }
 
     // prevents sectionToShow from being out of bounds
-    if (isNaN(sectionToShow)){return}
+    if (isNaN(sectionToShow)) { return }
 
-    if(sectionToShow < 1){
+    if (sectionToShow < 1) {
 
         const components = window.location.pathname.split('/')
         priorChapter = parseInt(components[components.length - 1].split('.')[0]) - 1
-        if (priorChapter < 1){
+        if (priorChapter < 1) {
             window.location.href = 'toc.html'
-        }else{
+        } else {
             window.location.href = priorChapter + '.html'
             return
         }
 
-    }else if(sectionToShow > sections.length){
+    } else if (sectionToShow > sections.length) {
         // navigate to next chapter
         // needs to be updated to work with TOC, for now, it will guess the chapter number
 
-        
-        if(!globals.pageData.bookend){
+
+        if (!globals.pageData.bookend) {
             globals.pageData.bookend = tag("page-data").dataset.bookend
             //console.log('tag("page-data").dataset.bookend',tag("page-data").dataset.bookend)
         }
-        if(globals.pageData.bookend==="true"){
-            message({text:"You have reached the end of this book.  Thank you for using Availabooks.", title:"Book Over", buttons:[], seconds:8})
-        }else{
+        if (globals.pageData.bookend === "true") {
+            message({ text: "You have reached the end of this book.  Thank you for using Availabooks.", title: "Book Over", buttons: [], seconds: 8 })
+        } else {
             const components = window.location.pathname.split('/')
             nextChapter = parseInt(components[components.length - 1].split('.')[0]) + 1
             window.location.href = nextChapter + '.html'
         }
-        return 
+        return
     }
 
-    for(const sectionNumber of sectionsToHide ){
+    for (const sectionNumber of sectionsToHide) {
         tag('section-' + sectionNumber).style.display = 'none'
     }
 
-    tag('section-' + sectionToShow).style.display = 'block'  
-    
-    if(sectionToShow===1){
-        window.scrollTo(0,0)
-    }else{
-        window.scrollTo(0,25)
-        if(recordHash){
-          window.location.hash = 'section-' + sectionToShow
+    tag('section-' + sectionToShow).style.display = 'block'
+
+    if (sectionToShow === 1) {
+        window.scrollTo(0, 0)
+    } else {
+        window.scrollTo(0, 25)
+        if (recordHash) {
+            window.location.hash = 'section-' + sectionToShow
         }
     }
-    
+
 }
 
-function navigate(direction){
-    const path= location.pathname.replace(".","/").split("/")
+function navigate(direction) {
+    const path = location.pathname.replace(".", "/").split("/")
 
-    let nextNumber=null
-    if(direction==="prior"){
-      nextNumber = parseInt(path[3])-1 
-      if (nextNumber<1){
-        return// no where to go
-      }
-    }else{
-    nextNumber = parseInt(path[3])+1
-      if (nextNumber>window.lastChapterId){
-        return// no where to go
-      }
+    let nextNumber = null
+    if (direction === "prior") {
+        nextNumber = parseInt(path[3]) - 1
+        if (nextNumber < 1) {
+            return// no where to go
+        }
+    } else {
+        nextNumber = parseInt(path[3]) + 1
+        if (nextNumber > window.lastChapterId) {
+            return// no where to go
+        }
     }
 
 
-    path[3]=nextNumber+"."+path.pop()
+    path[3] = nextNumber + "." + path.pop()
     //console.log("I'm navigating",path.join("/"))
-    window.location.href=path.join("/")
+    window.location.href = path.join("/")
 
     return
     // assuming full chapter navigation
@@ -422,75 +428,78 @@ function navigate(direction){
     const clonedElement = targetNode.cloneNode(true);
     targetNode.remove()
 
-    if(direction === 'next'){
+    if (direction === 'next') {
         showSection('next')
-    } else{
+    } else {
         // direction === 'prior'
         showSection('prior')
     }
     parentNode.appendChild(clonedElement)
-    
+
 }
-function showMenu(){
+function showMenu() {
     // show the menu
     //console.log("showing menu")
-    
-    let menuWidth=tag('menu').offsetWidth
 
-    if (menuWidth === 0){
+    let menuWidth = tag('menu').offsetWidth
+
+    if (menuWidth === 0) {
         tag('menu').style.display = 'block'
-        menuWidth=tag('menu').offsetWidth
-    }   
-    tag('menu').style.left= '0'
-    
+        menuWidth = tag('menu').offsetWidth
+    }
+    tag('menu').style.left = '0'
+
 }
 
-function hideMenu(){
-    let menuWidth=tag('menu').offsetWidth
-    tag('menu').style.left= `-${menuWidth+10}px`  
-      
+function hideMenu() {
+    let menuWidth = tag('menu').offsetWidth
+    tag('menu').style.left = `-${menuWidth + 10}px`
+
 }
 
-function copyThisPrompt(event){
-  //console.log("at copyThisPrompt")  
-  //showToast("I'm juicing!")
-  const prior = event.target.previousElementSibling;
-  if (!prior) return;
+function copyThisPrompt(event) {
+    //console.log("at copyThisPrompt")  
+    //showToast("I'm juicing!")
+    const prior = event.target.previousElementSibling;
+    if (!prior) return;
 
-  navigator.clipboard.writeText(prior.innerText)
-    .then(() => showToast("prompt for AI copied"))
-    .catch(console.error);
+    navigator.clipboard.writeText(prior.innerText)
+        .then(() => showToast("prompt for AI copied"))
+        .catch(console.error);
 }
 
 
-function buildMenu(){
+function buildMenu() {
+
+    console.log("I'm building the menu!")
 
 
-    const  html=[`
+    const html = [`
         <div class='menu-header'><span class='material-symbols-outlined menu-button' onclick='hideMenu()'>close</span><span id='book-title'><a href='toc.html'>${globals.bookInfo.title}</a></span></div>
         <div id='menu-content'>
+        <div id='menu-courses'></div>
         <div id='toc'>
     `]
-    
-    for(const chapter of globals.bookInfo.chapters){
-        if(chapter.sections){
+
+    for (const chapter of globals.bookInfo.chapters) {
+        if (chapter.sections) {
             let chapterNumber = window.location.pathname.split("/").pop().split(".")[0]
-            if(chapterNumber === chapter.id){
+            if (chapterNumber === chapter.id) {
                 html.push("<details open>")
-                globals.bookInfo.currentChapter=chapterNumber
-            }else{
+                globals.bookInfo.currentChapter = chapterNumber
+            } else {
                 html.push("<details>")
             }
             getChaptSections(chapter, html)
             html.push("</details>")
-        }else{    
-          let label=""
-          if(chapter.label){
-            label=chapter.label + ": "
-          }
+        } else {
+            let label = ""
+            if (chapter.label) {
+                label = chapter.label + ": "
+            }
             html.push(`<div>${label}<a href="${chapter.id}.html">${chapter.text}</a></div>`)
-        }        
-        window.lastChapterId=parseInt(chapter.id)
+        }
+        window.lastChapterId = parseInt(chapter.id)
     }
 
     html.push(`</div>
@@ -509,14 +518,14 @@ function buildMenu(){
             <summary>Tools available in this book</summary>
             <div>
     `)
-     // make a place to receive the tools here 
-     console.log("book info tools", globals.bookInfo.tools)
-     for(const tool of globals.bookInfo.tools){
+    // make a place to receive the tools here 
+    console.log("book info tools", globals.bookInfo.tools)
+    for (const tool of globals.bookInfo.tools) {
         console.log(tool)
         html.push(`<div id="menu-tool-${tool}"></div>`)
 
-     } 
-     
+    }
+
 
 
 
@@ -527,87 +536,288 @@ function buildMenu(){
     `)
 
     //get the tools
-    tag("menu").innerHTML=html.join("\n")
-     for(const tool of globals.bookInfo.tools){
+    tag("menu").innerHTML = html.join("\n")
+    bindMenuCourses()
+    updateMenuCourses()
+    for (const tool of globals.bookInfo.tools) {
         console.log(tool)
-        const toolUrl=`${globals.systemUrl}/feeds/posts/default/-/${tool}?alt=json-in-script&max-results=1&callback=loadMenuTool`
-        loadCrossOrigin(toolUrl); 
+        const toolUrl = `${globals.systemUrl}/feeds/posts/default/-/${tool}?alt=json-in-script&max-results=1&callback=loadMenuTool`
+        loadCrossOrigin(toolUrl);
 
-     } 
-         
+    }
+
 
 }
 
-function loadMenuTool(x){
-    const toolId="menu-tool-" + x.feed.entry[0].title.$t
-    const parts=x.feed.entry[0].content.$t.split("==================================================")
+/**
+ * Escapes text before inserting into HTML.
+ * @param {string} value - Raw text.
+ */
+function escapeHtml(value) {
+    return String(value)
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#39;")
+}
+
+/**
+ * Formats role labels for display in the menu course list.
+ * @param {{ role?: string | null; roles?: string[] }} course - Course membership.
+ */
+function courseRoleLabel(course) {
+    const roles =
+        Array.isArray(course.roles) && course.roles.length > 0
+            ? course.roles
+            : course.role
+                ? [course.role]
+                : []
+    return roles.length > 0 ? roles.join(", ") : "member"
+}
+
+/**
+ * Wires click handling for selecting a course from the side menu.
+ */
+function bindMenuCourses() {
+    const container = tag("menu-courses")
+    if (!container || container.dataset.bound === "true") {
+        return
+    }
+    container.dataset.bound = "true"
+    container.addEventListener("click", (event) => {
+        const target = event.target
+        if (!(target instanceof HTMLElement)) {
+            return
+        }
+        const button = target.closest("[data-menu-course-select]")
+        if (!(button instanceof HTMLButtonElement) || button.disabled) {
+            return
+        }
+        const organizationId = button.getAttribute("data-organization-id")
+        if (!organizationId) {
+            return
+        }
+        void selectMenuCourse(organizationId, button)
+    })
+}
+
+/**
+ * Loads courses for the signed-in user and renders them in the side menu.
+ */
+async function updateMenuCourses() {
+    const container = tag("menu-courses")
+    if (!container) {
+        return
+    }
+
+    if (!globals.user || !globals.user.id) {
+        container.innerHTML = `
+            <h6>Your Courses</h6>
+            <p class="menu-courses-hint">
+                <a href="#" onclick="handleLogin(); return false;">Log in</a> to see your courses.
+            </p>
+        `
+        return
+    }
+
+    container.innerHTML = `
+        <h6>Your Courses</h6>
+        <p class="menu-courses-hint">Loading…</p>
+    `
+
+    try {
+        const courses = await getCourses()
+        globals.courses = courses
+        renderMenuCourses(container, courses)
+    } catch (err) {
+        console.error(err)
+        container.innerHTML = `
+            <h6>Your Courses</h6>
+            <p class="menu-courses-hint">Could not load courses.</p>
+        `
+    }
+}
+
+/**
+ * Renders the current course and other available courses in the menu.
+ * @param {HTMLElement} container - Menu courses root element.
+ * @param {Array<{ id: string; title: string; workosOrganizationId: string; role?: string | null; roles?: string[] }>} courses - Course memberships.
+ */
+function renderMenuCourses(container, courses) {
+    const organizationId = globals.user?.organizationId ?? null
+
+    if (!courses.length) {
+        container.innerHTML = `
+            <h6>Your Courses</h6>
+            <p class="menu-courses-hint">You are not enrolled in any courses yet.</p>
+        `
+        return
+    }
+
+    const current = courses.find((course) => course.workosOrganizationId === organizationId)
+    const others = courses.filter((course) => course.workosOrganizationId !== organizationId)
+
+    const currentHtml = current
+        ? `
+            <div class="menu-course menu-course-current">
+                <div class="menu-course-meta">
+                    <div class="menu-course-title">${escapeHtml(current.title || "Untitled course")}</div>
+                    <div class="menu-course-role">${escapeHtml(courseRoleLabel(current))} · Current</div>
+                </div>
+            </div>
+        `
+        : `
+            <p class="menu-courses-hint">No course selected yet. Choose one below.</p>
+        `
+
+    const othersHtml = others.length
+        ? `
+            <div class="menu-courses-others-label">Other courses</div>
+            <ul class="menu-courses-list">
+                ${others
+                    .map((course) => {
+                        const orgId = escapeHtml(course.workosOrganizationId)
+                        return `
+                            <li class="menu-course">
+                                <div class="menu-course-meta">
+                                    <div class="menu-course-title">${escapeHtml(course.title || "Untitled course")}</div>
+                                    <div class="menu-course-role">${escapeHtml(courseRoleLabel(course))}</div>
+                                </div>
+                                <button
+                                    type="button"
+                                    class="menu-course-select"
+                                    data-menu-course-select
+                                    data-organization-id="${orgId}"
+                                >
+                                    Switch
+                                </button>
+                            </li>
+                        `
+                    })
+                    .join("")}
+            </ul>
+        `
+        : `<p class="menu-courses-hint">No other courses available.</p>`
+
+    container.innerHTML = `
+        <h6>Your Courses</h6>
+        ${currentHtml}
+        ${othersHtml}
+    `
+}
+
+/**
+ * Selects a course organization for the current session and refreshes the menu.
+ * @param {string} organizationId - WorkOS organization id.
+ * @param {HTMLButtonElement} button - Switch button that was clicked.
+ */
+async function selectMenuCourse(organizationId, button) {
+    button.disabled = true
+    button.textContent = "Switching…"
+
+    try {
+        const response = await fetch(globals.appUrl + "/api/auth/course/select", {
+            method: "POST",
+            credentials: "include",
+            headers: {
+                Accept: "application/json",
+                "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ organizationId }),
+        })
+        const payload = await response.json().catch(() => ({}))
+        if (!response.ok || payload.status !== "selected") {
+            button.disabled = false
+            button.textContent = "Switch"
+            console.error("Could not select course", payload)
+            return
+        }
+
+        if (globals.user) {
+            globals.user.organizationId = payload.organizationId
+            globals.user.role = payload.role
+            globals.user.roles = payload.roles
+            globals.user.permissions = payload.permissions
+        }
+        await updateMenuCourses()
+    } catch (err) {
+        console.error(err)
+        button.disabled = false
+        button.textContent = "Switch"
+    }
+}
+
+function loadMenuTool(x) {
+    const toolId = "menu-tool-" + x.feed.entry[0].title.$t
+    const parts = x.feed.entry[0].content.$t.split("==================================================")
     //console.log("loading menu tool", parts[0])
-   
+
     // load the css
     const style = document.createElement('style');
     style.textContent = parts[0]
     document.head.appendChild(style);
 
     //load the JS
-     injectJs(parts[1])
+    injectJs(parts[1])
 
     // place the HTML
     console.log("tryoing to palce", toolId)
-    tag(toolId).innerHTML =   parts[2].trim()
-    
+    tag(toolId).innerHTML = parts[2].trim()
+
 }
 
 
 
-function getChaptSections(obj, html) { 
-        //console.log("at chapterSections",obj)
-        let label=""
-        if(obj.label){
-          label=obj.label + ": "
-        }
+function getChaptSections(obj, html) {
+    //console.log("at chapterSections",obj)
+    let label = ""
+    if (obj.label) {
+        label = obj.label + ": "
+    }
 
     html.push("<summary>")
-    html.push(`<span>${label}</span><span><a href="${newPathName(window.location.pathname,obj.id)}">${obj.text}</a></span>`)
+    html.push(`<span>${label}</span><span><a href="${newPathName(window.location.pathname, obj.id)}">${obj.text}</a></span>`)
     html.push("</summary>")
-    for(const child of obj.sections){
-        if(child.sections){
+    for (const child of obj.sections) {
+        if (child.sections) {
             html.push('<div class="toc-section-container"><details>')
             getChaptSections(child, html)
             html.push("</details></div>")
-        }else{                
+        } else {
             html.push('<div class="toc-text-container">')
-            html.push(`<a href="${newPathName(window.location.pathname,obj.id)}#${child.id}"><span></span><span>${child.text}</a></span>`)
+            html.push(`<a href="${newPathName(window.location.pathname, obj.id)}#${child.id}"><span></span><span>${child.text}</a></span>`)
             html.push("</div>")
         }
 
     }
-    function lastId(id){
-        const idArray=id.split("-")
-        return idArray[idArray.length-1]
+    function lastId(id) {
+        const idArray = id.split("-")
+        return idArray[idArray.length - 1]
     }
-    function newPathName(path, id){
-        const pathArray=path.split("/")        
-        const fileArray = pathArray[pathArray.length-1].split(".")
-        const currentChapter=fileArray[0]
+    function newPathName(path, id) {
+        const pathArray = path.split("/")
+        const fileArray = pathArray[pathArray.length - 1].split(".")
+        const currentChapter = fileArray[0]
         //console.log("about to split", id, typeof id)
         const linkChapter = id.split("-").shift()
-        
-        if(linkChapter===currentChapter){
+
+        if (linkChapter === currentChapter) {
             // link to a place on the same page
             return ""
-        }else{
+        } else {
             //link to a place on a different page
             fileArray[0] = linkChapter
-            pathArray[pathArray.length-1] = fileArray.join(".")
+            pathArray[pathArray.length - 1] = fileArray.join(".")
             return pathArray.join("/")
         }
 
-        
+
     }
 }
 
 
-function showHighlight(){
+function showHighlight() {
 
     document.getElementsByTagName("p")[0].replaceChildren(document.getElementsByTagName("p")[0].innerHTML)
 
@@ -637,7 +847,7 @@ function showHighlight(){
 // showToast("Saved.")                  // neutral info
 // showToast("Saved successfully.", "success")
 // showToast("Save failed.", "error")
-function getToastEl(){
+function getToastEl() {
     let el = tag("toast")
     if (!el) {
         el = document.createElement("div")
@@ -680,7 +890,7 @@ function closeMessage(evt) {
 //   seconds : auto-close delay in seconds (optional)
 //   type    : "info" (default) | "warning" | "error"
 //   modal   : true = block page interaction until dismissed; false (default) = non-blocking
-function message({text: messageHtml = "An error occurred.", title: titleText = "System Message", buttons: callbacks = [{text:"OK", fn:closeMessage}], seconds: secondsUntilClose, type = "info", modal = false} = {}) {
+function message({ text: messageHtml = "An error occurred.", title: titleText = "System Message", buttons: callbacks = [{ text: "OK", fn: closeMessage }], seconds: secondsUntilClose, type = "info", modal = false } = {}) {
 
     // ensure gallery container exists
     let galley = tag("msg-galley")
@@ -775,132 +985,145 @@ function message({text: messageHtml = "An error occurred.", title: titleText = "
 }
 
 
-function fontSize(adjustment){
+function fontSize(adjustment) {
     //adjust the font size for the post
 
     //const zoom = parseFloat(window.getComputedStyle(document.body).getPropertyValue('--font-zoom'))
-    if(!adjustment){
+    if (!adjustment) {
         globals.variables.fontZoom = 1
         //document.body.style.setProperty('--font-zoom', 1);
-    }else{
-        globals.variables.fontZoom = Math.round((globals.variables.fontZoom+adjustment)*10)/10
+    } else {
+        globals.variables.fontZoom = Math.round((globals.variables.fontZoom + adjustment) * 10) / 10
         //document.body.style.setProperty('--font-zoom', zoom + adjustment);
     }
     document.body.style.setProperty('--font-zoom', globals.variables.fontZoom);
-    localStorage.setItem(`book-settings`,JSON.stringify(globals.variables))
+    localStorage.setItem(`book-settings`, JSON.stringify(globals.variables))
 
 }
 
 
-function playAudio(td){
-         let elem = td
-         while(elem.className !== "audio-control"){
-           elem=elem.parentElement
-           //console.log(elem)
-         } 
+function playAudio(td) {
+    let elem = td
+    while (elem.className !== "audio-control") {
+        elem = elem.parentElement
+        //console.log(elem)
+    }
     //console.log("---->", elem.dataset.next)  
-    audioDataUrl= elem.id + ".html"
+    audioDataUrl = elem.id + ".html"
 
-      fetch(audioDataUrl)
+    fetch(audioDataUrl)
         .then(response => {
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        return response.text();
-      })
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return response.text();
+        })
         .then(html => {
-        // The fetched content is the base64 string.
-        // We need to create a data URL to play it.
-        // This example assumes the audio is in WAV format. Adjust as needed.
-        
-        base64String=html.split("~~~~")[1]
-        //console.log("base64String",base64String)
-        const mimeType = 'audio/mpeg';
-        const audioSrc = `data:${mimeType};base64,${base64String}`;
-        
+            // The fetched content is the base64 string.
+            // We need to create a data URL to play it.
+            // This example assumes the audio is in WAV format. Adjust as needed.
 
-        // Create a new Audio object or element
-//        const audio = new Audio(audioSrc);
+            base64String = html.split("~~~~")[1]
+            //console.log("base64String",base64String)
+            const mimeType = 'audio/mpeg';
+            const audioSrc = `data:${mimeType};base64,${base64String}`;
 
-        // To allow the user to see the controls, you can append an audio element to the DOM
-         const audioEl = document.createElement('audio');
-         audioEl.playbackRate = 2;
-         audioEl.controls = true;
-         audioEl.src = audioSrc;
-         td.replaceChildren("");
 
-        
-        elem.replaceChildren(audioEl)
-        audioEl.addEventListener('ended', ()=>{
-          
-          let audioTag = tag(elem.dataset.next)
-          if(!audioTag){return}
-          audioTag = audioTag.firstElementChild
-          audioTag.scrollIntoView({ behavior: 'smooth' })
-          if(audioTag.tagName.toLowerCase()==="audio"){
-            audioTag.currentTime = 0;
-            audioTag.play()
-          }else{
-            audioTag.click()
-          }
-        });
-        // Play the audio automatically
-        audioEl.play()
-          .then(() => {
-          //console.log('Audio is now playing.');
+            // Create a new Audio object or element
+            //        const audio = new Audio(audioSrc);
+
+            // To allow the user to see the controls, you can append an audio element to the DOM
+            const audioEl = document.createElement('audio');
+            audioEl.playbackRate = 2;
+            audioEl.controls = true;
+            audioEl.src = audioSrc;
+            td.replaceChildren("");
+
+
+            elem.replaceChildren(audioEl)
+            audioEl.addEventListener('ended', () => {
+
+                let audioTag = tag(elem.dataset.next)
+                if (!audioTag) { return }
+                audioTag = audioTag.firstElementChild
+                audioTag.scrollIntoView({ behavior: 'smooth' })
+                if (audioTag.tagName.toLowerCase() === "audio") {
+                    audioTag.currentTime = 0;
+                    audioTag.play()
+                } else {
+                    audioTag.click()
+                }
+            });
+            // Play the audio automatically
+            audioEl.play()
+                .then(() => {
+                    //console.log('Audio is now playing.');
+                })
+                .catch(e => {
+                    console.log('Could not play audio. Check the console for an Autoplay Policy error.');
+                    console.error('Audio play error:', e);
+                })
+                .finally(() => {
+                    //playButton.disabled = false;
+                });
         })
-          .catch(e => {
-          console.log('Could not play audio. Check the console for an Autoplay Policy error.');
-          console.error('Audio play error:', e);
-        })
-          .finally(() => {
-          //playButton.disabled = false;
-        });
-      })
         .catch(error => {
-        console.error(error)
-        //handleError(error);
-        //playButton.disabled = false;
-      });      
-    
-    }
-
-
-function makePrompt(evt,props){
-  if(evt){
-    let elem = evt.target
-    const html=[]
-    while(elem.tagName!=="H" + props.level){
-      elem = elem.previousElementSibling
-      if(elem.tagName==="DIV" && elem.className==="monaco"){
-        continue
-      }
-      html.unshift(elem.outerHTML)
-    }
-    //console.log("fount it:", elem.tagName) 
-    //console.log(html)
-    const turndownService = new TurndownService();
-    const prompt = ["I'm learning about javascript.  Please help me understand it by giving me three options: Walk me through the main points, Give me different examples covering the same content, or quizzing me on the main points.  Here's the text of the section:"]
-    prompt.push(turndownService.turndown(html.join("")))
-
-    prompt.push("Here's the table of content from the book so you can know what i've already learned and what else is coming up")
-    prompt.push(tag("toc").innerText.split("\n\n\n").join("\n").split("\n\n").join("\n"))
-
-
-    navigator.clipboard.writeText(prompt.join("\n\n"))
-      .then(() =>console.log("Copied!"))
-      .catch(err =>console.error("Failed:", err));
-  }
+            console.error(error)
+            //handleError(error);
+            //playButton.disabled = false;
+        });
 
 }
 
-    function handleLogin(){
 
-      window.location.href=getUrl(globals.systemUrl + "/2000/02/login.html?next=" + encodeURI(location.href))
+function makePrompt(evt, props) {
+    if (evt) {
+        let elem = evt.target
+        const html = []
+        while (elem.tagName !== "H" + props.level) {
+            elem = elem.previousElementSibling
+            if (elem.tagName === "DIV" && elem.className === "monaco") {
+                continue
+            }
+            html.unshift(elem.outerHTML)
+        }
+        //console.log("fount it:", elem.tagName) 
+        //console.log(html)
+        const turndownService = new TurndownService();
+        const prompt = ["I'm learning about javascript.  Please help me understand it by giving me three options: Walk me through the main points, Give me different examples covering the same content, or quizzing me on the main points.  Here's the text of the section:"]
+        prompt.push(turndownService.turndown(html.join("")))
+
+        prompt.push("Here's the table of content from the book so you can know what i've already learned and what else is coming up")
+        prompt.push(tag("toc").innerText.split("\n\n\n").join("\n").split("\n\n").join("\n"))
+
+
+        navigator.clipboard.writeText(prompt.join("\n\n"))
+            .then(() => console.log("Copied!"))
+            .catch(err => console.error("Failed:", err));
     }
 
-    function getUrl(url){
-        return url
-    }
+}
 
+function handleLogin() {
+
+    window.location.href = getUrl(globals.systemUrl + "/2000/02/login.html?next=" + encodeURI(location.href))
+}
+
+function getUrl(url) {
+    return url
+}
+/**
+ * Fetches courses for the signed-in user. Returns [] when unauthenticated.
+ */
+async function getCourses() {
+    const response = await fetch(globals.appUrl + "/api/courses", {
+        credentials: "include",
+    })
+    if (!response.ok) {
+        return []
+    }
+    const data = await response.json()
+    return Array.isArray(data.courses) ? data.courses : []
+}
 init()
+
