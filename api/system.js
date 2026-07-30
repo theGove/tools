@@ -6,6 +6,12 @@ const globals = {
     variables: {},
     user: {},
     courses: [],
+    /** @type {{ lastByBook?: Record<string, { chapter: string; section: string; path?: string; updatedAt: string }> } | null} */
+    bookActivity: null,
+    /** When true, section changes are saved to the course book-activity API. */
+    trackBookActivity: false,
+    /** @type {ReturnType<typeof setTimeout> | null} */
+    bookActivitySaveTimer: null,
 }
 
 /**
@@ -17,7 +23,12 @@ function getUserRecord() {
         return response.json()
     }).then(data => {
         console.log("data", data)
+        const previousOrg = globals.user?.organizationId ?? null
         globals.user = data.user
+        // Prefer the org already selected this page load if /me has none yet.
+        if (globals.user && !globals.user.organizationId && previousOrg) {
+            globals.user.organizationId = previousOrg
+        }
         updateLoginButton()
         updateMenuCourses()
     })
@@ -190,7 +201,7 @@ function initialize(bookInfoFeed) {
         } else {
             showSection(1)
         }
-
+        scheduleBookActivitySave()
     });
 
     window.addEventListener('resize', setTopMargin);
@@ -392,6 +403,8 @@ function showSection(section, recordHash = true) {
             window.location.hash = 'section-' + sectionToShow
         }
     }
+
+    scheduleBookActivitySave(String(sectionToShow))
 
 }
 
@@ -657,6 +670,8 @@ function clearActiveCourse() {
         roles: [],
         permissions: [],
     })
+    globals.bookActivity = null
+    globals.trackBookActivity = false
 }
 
 /**
@@ -725,11 +740,35 @@ async function syncActiveCourseToCurrentBook(courses) {
 }
 
 /**
- * Builds the public URL for a course book subdomain.
+ * Builds the public URL for a course book, optionally at a saved chapter/section.
  * @param {string} slug - Book slug (subdomain of availabooks.com).
+ * @param {{ chapter?: string; section?: string; path?: string } | null} [position] - Saved position for the book.
  */
-function bookUrl(slug) {
-    return `https://${slug}.availabooks.com/`
+function bookUrl(slug, position) {
+    const base = `https://${slug}.availabooks.com`
+    const path =
+        typeof position?.path === "string" &&
+        position.path.startsWith("/") &&
+        !position.path.includes("://")
+            ? position.path
+            : "/"
+    const hash = path === "/" ? "" : bookSectionHash(position?.section)
+    return base + path + hash
+}
+
+/**
+ * Returns a location hash for a saved section, or "" for section 1 / missing.
+ * @param {string | undefined} section - Saved section id or number.
+ */
+function bookSectionHash(section) {
+    if (!section || section === "1") {
+        return ""
+    }
+    const numbered = parseInt(section, 10)
+    if (String(numbered) === section && numbered >= 1) {
+        return "#section-" + numbered
+    }
+    return "#" + section
 }
 
 /**
@@ -896,6 +935,7 @@ async function updateMenuCourses() {
         const courses = await getCourses()
         globals.courses = courses
         await syncActiveCourseToCurrentBook(courses)
+        await syncBookActivityForActiveCourse()
         renderMenuCourses(container, courses)
     } catch (err) {
         console.error(err)
@@ -1066,7 +1106,9 @@ async function selectMenuCourse(organizationId, trigger, bookSlug) {
         }
 
         if (bookSlug) {
-            window.location.href = bookUrl(bookSlug)
+            const activity = await fetchBookActivity(organizationId)
+            const position = activity?.lastByBook?.[bookSlug] ?? null
+            window.location.href = bookUrl(bookSlug, position)
             return
         }
 
@@ -1454,5 +1496,147 @@ async function getCourses() {
     const data = await response.json()
     return Array.isArray(data.courses) ? data.courses : []
 }
+
+/**
+ * Returns the chapter id from the current page path (e.g. "3" from "/y/m/3.html").
+ */
+function currentChapterId() {
+    const file = window.location.pathname.split("/").pop() || ""
+    const id = file.split(".")[0]
+    if (!id || id === "toc") {
+        return null
+    }
+    return id
+}
+
+/**
+ * Returns the current section marker: numbered `.chapter-section` when present,
+ * otherwise the location hash id, otherwise "1".
+ */
+function currentSectionId() {
+    const visible = currentlyVisibleSection()
+    if (visible) {
+        return String(visible)
+    }
+    const hash = (window.location.hash || "").replace(/^#/, "").trim()
+    if (hash) {
+        return hash
+    }
+    return "1"
+}
+
+/**
+ * Fetches book activity for a course organization.
+ * @param {string} organizationId - WorkOS organization id.
+ */
+async function fetchBookActivity(organizationId) {
+    const response = await fetch(
+        globals.appUrl + "/api/courses/" + encodeURIComponent(organizationId) + "/book-activity",
+        { credentials: "include" },
+    )
+    if (!response.ok) {
+        return null
+    }
+    const data = await response.json()
+    return data.activity && typeof data.activity === "object" ? data.activity : null
+}
+
+/**
+ * Saves last chapter/section for the current book in the active course.
+ * @param {{ book: string; chapter: string; section: string; path?: string }} position - Position to store.
+ */
+async function putBookActivity(position) {
+    const organizationId = globals.user?.organizationId
+    if (!organizationId) {
+        console.warn("book-activity: skip save, no organizationId")
+        return null
+    }
+    const response = await fetch(
+        globals.appUrl + "/api/courses/" + encodeURIComponent(organizationId) + "/book-activity",
+        {
+            method: "POST",
+            credentials: "include",
+            headers: {
+                Accept: "application/json",
+                "Content-Type": "application/json",
+            },
+            body: JSON.stringify(position),
+        },
+    )
+    if (!response.ok) {
+        console.error("Could not save book activity", await response.json().catch(() => ({})))
+        return null
+    }
+    const data = await response.json()
+    if (data.activity && typeof data.activity === "object") {
+        globals.bookActivity = data.activity
+    }
+    return data.activity ?? null
+}
+
+/**
+ * Debounces saving the current reading position.
+ * @param {string} [section] - Section to store; defaults to currentSectionId().
+ */
+function scheduleBookActivitySave(section) {
+    if (!globals.trackBookActivity) {
+        return
+    }
+    if (!globals.user?.id || !globals.user?.organizationId) {
+        return
+    }
+    const book = currentBookSlug()
+    const chapter = currentChapterId()
+    const sectionId = section == null || section === "" ? currentSectionId() : String(section)
+    const path = window.location.pathname
+    if (!book || !chapter || !sectionId) {
+        console.warn("book-activity: skip save", { book, chapter, section: sectionId })
+        return
+    }
+
+    if (globals.bookActivitySaveTimer) {
+        clearTimeout(globals.bookActivitySaveTimer)
+    }
+    globals.bookActivitySaveTimer = setTimeout(() => {
+        globals.bookActivitySaveTimer = null
+        console.log("book-activity: saving", { book, chapter, section: sectionId, path })
+        void putBookActivity({ book, chapter, section: sectionId, path })
+    }, 400)
+}
+
+/**
+ * Returns the currently visible chapter-section number, or null.
+ */
+function currentlyVisibleSection() {
+    for (const elem of document.querySelectorAll(".chapter-section")) {
+        if (elem.style.display !== "none") {
+            const n = parseInt(elem.id.split("-")[1], 10)
+            if (!isNaN(n)) {
+                return n
+            }
+        }
+    }
+    return null
+}
+
+/**
+ * Loads book activity for the active course so later section changes can be saved.
+ */
+async function syncBookActivityForActiveCourse() {
+    globals.trackBookActivity = false
+    globals.bookActivity = null
+
+    const organizationId = globals.user?.organizationId
+    if (!globals.user?.id || !organizationId) {
+        return
+    }
+
+    const activity = await fetchBookActivity(organizationId)
+    globals.bookActivity = activity || { lastByBook: {} }
+
+    globals.trackBookActivity = true
+    scheduleBookActivitySave()
+}
+
 init()
 
