@@ -690,24 +690,51 @@ function bindMenuCourses() {
         return
     }
     container.dataset.bound = "true"
+
+    /**
+     * Handles a course/book select trigger from click or keyboard.
+     * @param {Event} event - Click or keydown event.
+     * @param {HTMLElement} selectEl - Element with data-menu-course-select.
+     */
+    function activateMenuCourseSelect(event, selectEl) {
+        if (selectEl instanceof HTMLButtonElement && selectEl.disabled) {
+            return
+        }
+        // Keep book buttons / course rows inside <summary> from toggling the course dropdown.
+        event.preventDefault()
+        event.stopPropagation()
+        const organizationId = selectEl.getAttribute("data-organization-id")
+        if (!organizationId) {
+            return
+        }
+        const bookSlug = selectEl.getAttribute("data-book-slug")
+        void selectMenuCourse(organizationId, selectEl, bookSlug)
+    }
+
     container.addEventListener("click", (event) => {
         const target = event.target
         if (!(target instanceof HTMLElement)) {
             return
         }
-        const button = target.closest("[data-menu-course-select]")
-        if (!(button instanceof HTMLButtonElement) || button.disabled) {
+        const selectEl = target.closest("[data-menu-course-select]")
+        if (!(selectEl instanceof HTMLElement)) {
             return
         }
-        // Keep book buttons inside <summary> from toggling the course dropdown.
-        event.preventDefault()
-        event.stopPropagation()
-        const organizationId = button.getAttribute("data-organization-id")
-        if (!organizationId) {
+        activateMenuCourseSelect(event, selectEl)
+    })
+
+    container.addEventListener("keydown", (event) => {
+        if (event.key !== "Enter" && event.key !== " ") {
             return
         }
-        const bookSlug = button.getAttribute("data-book-slug")
-        void selectMenuCourse(organizationId, button, bookSlug)
+        const target = event.target
+        if (!(target instanceof HTMLElement)) {
+            return
+        }
+        if (!(target instanceof HTMLLIElement) || !target.hasAttribute("data-menu-course-select")) {
+            return
+        }
+        activateMenuCourseSelect(event, target)
     })
 }
 
@@ -756,10 +783,25 @@ function renderMenuCourseItem(course, isCurrentCourse) {
     const roleHtml = roleParts.length
         ? `<span class="menu-course-role">${escapeHtml(roleParts.join(" · "))}</span>`
         : ""
+    const books = courseBookSlugs(course)
+    const firstBook = books[0] || ""
+    const orgId = escapeHtml(course.workosOrganizationId)
+    const courseTitle = course.title || "Untitled course"
+    const rowTitle = firstBook
+        ? `Switch to ${courseTitle} and go to ${bookUrl(firstBook)}`
+        : `Switch to ${courseTitle}`
     return `
-        <li class="menu-course${isCurrentCourse ? " menu-course-current" : ""}">
+        <li
+            class="menu-course${isCurrentCourse ? " menu-course-current" : ""}"
+            data-menu-course-select
+            data-organization-id="${orgId}"
+            ${firstBook ? `data-book-slug="${escapeHtml(firstBook)}"` : ""}
+            title="${escapeHtml(rowTitle)}"
+            role="button"
+            tabindex="0"
+        >
             <div class="menu-course-meta">
-                <span class="menu-course-title">${escapeHtml(course.title || "Untitled course")}</span>
+                <span class="menu-course-title">${escapeHtml(courseTitle)}</span>
                 ${roleHtml}
             </div>
             ${renderCourseBookButtons(course, isCurrentCourse)}
@@ -832,13 +874,32 @@ function renderMenuCourses(container, courses) {
 /**
  * Selects a course organization, then opens the chosen book when provided.
  * @param {string} organizationId - WorkOS organization id.
- * @param {HTMLButtonElement} button - Switch/open button that was clicked.
+ * @param {HTMLElement} trigger - Switch/open control that was clicked.
  * @param {string | null} bookSlug - Book slug to open after switching, if any.
  */
-async function selectMenuCourse(organizationId, button, bookSlug) {
-    const originalLabel = button.textContent
-    button.disabled = true
-    button.textContent = bookSlug ? "Opening…" : "Switching…"
+async function selectMenuCourse(organizationId, trigger, bookSlug) {
+    const isButton = trigger instanceof HTMLButtonElement
+    const originalLabel = isButton ? trigger.textContent : null
+    if (isButton) {
+        trigger.disabled = true
+        trigger.textContent = bookSlug ? "Opening…" : "Switching…"
+    } else {
+        trigger.setAttribute("aria-busy", "true")
+        trigger.classList.add("menu-course-selecting")
+    }
+
+    /**
+     * Restores the trigger after a failed switch/open.
+     */
+    function restoreTrigger() {
+        if (isButton) {
+            trigger.disabled = false
+            trigger.textContent = originalLabel || "Switch"
+            return
+        }
+        trigger.removeAttribute("aria-busy")
+        trigger.classList.remove("menu-course-selecting")
+    }
 
     try {
         const alreadySelected = globals.user?.organizationId === organizationId
@@ -854,8 +915,7 @@ async function selectMenuCourse(organizationId, button, bookSlug) {
             })
             const payload = await response.json().catch(() => ({}))
             if (!response.ok || payload.status !== "selected") {
-                button.disabled = false
-                button.textContent = originalLabel || "Switch"
+                restoreTrigger()
                 console.error("Could not select course", payload)
                 return
             }
@@ -876,8 +936,7 @@ async function selectMenuCourse(organizationId, button, bookSlug) {
         await updateMenuCourses()
     } catch (err) {
         console.error(err)
-        button.disabled = false
-        button.textContent = originalLabel || "Switch"
+        restoreTrigger()
     }
 }
 

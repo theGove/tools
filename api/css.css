@@ -266,6 +266,15 @@ padding:.3rem .45rem;
 border:1px solid var(--border);
 border-radius:var(--radius-sm);
 background:var(--surface);
+cursor:pointer;
+}
+#menu-courses .menu-course:hover{
+background:var(--accent-soft);
+border-color:#bfdbfe;
+}
+#menu-courses .menu-course.menu-course-selecting{
+opacity:.7;
+pointer-events:none;
 }
 #menu-courses .menu-course-current{
 background:var(--accent-soft);
