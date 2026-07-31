@@ -618,14 +618,10 @@ function bookSlugFromHost(hostOrUrl) {
 }
 
 /**
- * Returns the slug for the book the user is viewing, preferring globals.bookInfo.
+ * Returns the slug for the book the user is viewing (subdomain of availabooks.com).
  */
 function currentBookSlug() {
-    const info = globals.bookInfo
-    if (info && typeof info.pro?.slug === "string" && info.pro.slug.trim()) {
-        return info.pro.slug.trim()
-    }
-    const fromBlog = bookSlugFromHost(info?.blogUrl)
+    const fromBlog = bookSlugFromHost(globals.bookInfo?.blogUrl)
     if (fromBlog) {
         return fromBlog
     }
