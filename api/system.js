@@ -149,8 +149,27 @@ function init(){
         loadCrossOrigin(`${location.origin}/tools/localCode/dev.js`)
     }else{
         // bring in the book info from the book post
-        loadCrossOrigin(`${origin}/feeds/posts/default/-/book?alt=json-in-script&max-results=1&callback=initialize`); 
+        loadCrossOrigin(`${location.origin}/feeds/posts/default/-/book?alt=json-in-script&max-results=1&callback=initialize`); 
     }    
+
+}
+
+function getAssessment(){
+  const urlParams = new URLSearchParams(window.location.search);
+  const assessmentId=urlParams.get('assessment')
+  if(assessmentId){
+    fetch(`https://assements.availabooks.com/feeds/posts/default/-/${assessmentId}?alt=json&max-results=1`)
+    .then(response => {return response.json()})
+    .then(data => {
+        console.log("=====assessment data========")
+        console.log(data)
+
+    })
+    
+    return true
+  }else{
+    return false
+  }
 
 }
 
@@ -158,7 +177,7 @@ function initialize(bookInfoFeed){
 
     globals.bookInfo = JSON.parse(bookInfoFeed.feed.entry[0].content.$t)
     console.log("globals.bookInfo",globals.bookInfo)
-    
+    getAssessment()
     getUserRecord()
     setVariables()
     buildMenu() 
