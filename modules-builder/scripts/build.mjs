@@ -46,21 +46,41 @@ function prependBanner(name) {
 }
 
 /**
+ * Vite plugin that writes the origin banner after each (re)build.
+ * @param {string} name - Module folder name.
+ */
+function bannerPlugin(name) {
+  return {
+    name: "availabooks-banner",
+    closeBundle() {
+      prependBanner(name);
+    },
+  };
+}
+
+/**
  * Builds one module folder into a single IIFE file in tools/api.
  * @param {string} name - Module folder name (also the output basename).
+ * @param {{ watch?: boolean }} [options] - Build options.
  */
-async function buildModule(name) {
+async function buildModule(name, options = {}) {
   const entry = resolve(modulesDir, name, "index.ts");
   if (!existsSync(entry)) {
     throw new Error(`No entry at src/modules/${name}/index.ts`);
   }
 
-  console.log(`Building ${name} → ../api/${name}.js`);
+  const watching = Boolean(options.watch);
+  console.log(
+    watching
+      ? `Watching ${name} → ../api/${name}.js`
+      : `Building ${name} → ../api/${name}.js`,
+  );
 
-  await build({
+  const result = await build({
     configFile: false,
     root,
     logLevel: "warn",
+    plugins: [bannerPlugin(name)],
     build: {
       outDir,
       emptyOutDir: false,
@@ -76,21 +96,39 @@ async function buildModule(name) {
           extend: true,
         },
       },
+      ...(watching ? { watch: {} } : {}),
     },
   });
 
-  prependBanner(name);
+  if (watching) {
+    const watcher = /** @type {import("rollup").RollupWatcher} */ (result);
+    watcher.on("event", (event) => {
+      if (event.code === "END") {
+        console.log(`Rebuilt ${name} → ../api/${name}.js`);
+      } else if (event.code === "ERROR") {
+        console.error(`Build error in ${name}:`, event.error);
+      }
+    });
+  }
 }
 
-const names = process.argv.slice(2).filter((arg) => arg.length > 0);
+const args = process.argv.slice(2).filter((arg) => arg.length > 0);
+const watch = args.includes("--watch");
+const names = args.filter((arg) => arg !== "--watch");
+
 if (names.length === 0) {
   console.error("Usage: npm run build -- <module> [module...]");
-  console.error("Example: npm run build -- a-quiz");
+  console.error("       npm run build:watch -- <module> [module...]");
+  console.error("Example: npm run build:watch -- a-quiz");
   process.exit(1);
 }
 
 for (const name of names) {
-  await buildModule(name);
+  await buildModule(name, { watch });
 }
 
-console.log(`Built ${names.length} module(s): ${names.join(", ")}`);
+if (watch) {
+  console.log(`Watching ${names.length} module(s): ${names.join(", ")} (Ctrl+C to stop)`);
+} else {
+  console.log(`Built ${names.length} module(s): ${names.join(", ")}`);
+}
