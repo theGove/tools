@@ -165,6 +165,10 @@ function findPhraseWithContext(text, phrase, contextCount = 10) {
 function init() {
     // This function  gets the bookInfo from the correct location and sends it to initialize.  Also loads development code if running locally
 
+    if (location.hostname === "localhost" || location.hostname === "127.0.0.1") {
+        alert("Running on localhost. Local code and auth cookies will NOT be loaded unless you change the hostname to local.availabooks.com")
+    }
+
     // bring in code that runs locally for debugging and testing
     if (location.hostname.startsWith("local.availabooks.com")) {
         loadCrossOrigin(`${location.origin}/tools/localCode/dev.js`)

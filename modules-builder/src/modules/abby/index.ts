@@ -73,6 +73,11 @@ function buildSrc(config: AbbyConfig) {
   if (config.embed) {
     url.searchParams.set("embed", "1");
   }
+  // Cross-origin document.referrer is often origin-only (strict-origin-when-cross-origin).
+  // Pass the exact textbook page so Stripe cancel/success can restore this URL.
+  if (typeof window !== "undefined" && window.location?.href) {
+    url.searchParams.set("return_to", window.location.href);
+  }
   return url.toString();
 }
 
@@ -144,6 +149,29 @@ export function scanAndMountAbbys(root?: ParentNode | null) {
     }
   }
   return mounted;
+}
+
+/**
+ * Responds to Abby iframe requests for this textbook page URL.
+ * @param {MessageEvent} event
+ */
+function onAbbyEmbedReturnRequest(event: MessageEvent) {
+  const data = event.data;
+  if (!data || data.type !== "abby:requestEmbedReturn") {
+    return;
+  }
+  const source = event.source;
+  if (!source || !("postMessage" in source)) {
+    return;
+  }
+  source.postMessage(
+    { type: "abby:embedReturn", url: window.location.href },
+    { targetOrigin: event.origin || "*" },
+  );
+}
+
+if (typeof window !== "undefined") {
+  window.addEventListener("message", onAbbyEmbedReturnRequest);
 }
 
 if (typeof document !== "undefined") {
