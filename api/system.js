@@ -12,6 +12,10 @@ const globals = {
     trackBookActivity: false,
     /** @type {ReturnType<typeof setTimeout> | null} */
     bookActivitySaveTimer: null,
+    /** Last section id applied by scroll-spy ("" = chapter intro / no hash). */
+    lastScrollSectionKey: null,
+    /** When true, scroll-spy will not rewrite the location hash. */
+    suppressSectionScrollSpy: false,
 }
 
 /**
@@ -194,23 +198,40 @@ function initialize(bookInfoFeed) {
     // Set a function onscroll - this will activate if the user scrolls
     //dims the buttons when the user scrolls
     window.onscroll = setDimness
+    bindSectionScrollSpy()
 
     window.addEventListener('hashchange', function () {
+        globals.suppressSectionScrollSpy = true
         if (window.location.hash) {
             scroll_to(window.location.hash.substring(1))
         } else {
             showSection(1)
         }
+        globals.lastScrollSectionKey = (window.location.hash || "").replace(/^#/, "")
         scheduleBookActivitySave()
+        setTimeout(() => {
+            globals.suppressSectionScrollSpy = false
+            globals.lastScrollSectionKey = null
+            syncHashToSectionInView()
+        }, 700)
     });
 
     window.addEventListener('resize', setTopMargin);
     setTopMargin()
     //console.log("hash", window.location.hash)
     if (window.location.hash) {
-        scroll_to(window.location.hash.substring(1))
+        const id = window.location.hash.substring(1)
+        globals.lastScrollSectionKey = id
+        globals.suppressSectionScrollSpy = true
+        scroll_to(id)
+        setTimeout(() => {
+            globals.suppressSectionScrollSpy = false
+            globals.lastScrollSectionKey = null
+            syncHashToSectionInView()
+        }, 700)
     } else {
         showSection(1)
+        syncHashToSectionInView()
     }
 }
 
@@ -268,24 +289,22 @@ function scroll_to(id, recordHash = true) {
     // Scroll to the specified element, being sure it is visible
     //console.log("scrollTo", id)
     hideMenu()
-    let element = tag(id)
-    if (!element) { return }
-    while (!element.className.includes('chapter-section')) {
-        element = element.parentElement;
-        if (!element) { return }
-    }
+    const target = tag(id)
+    if (!target) { return }
 
-    showSection(element.id.split('-')[1], false)
-
-    if (id !== element.id) {
-        // this is not a section, scroll to it  
-        tag(id).scrollIntoView({ behavior: 'smooth', block: 'start' });
+    const sectionRoot = target.closest(".chapter-section")
+    if (sectionRoot) {
+        showSection(sectionRoot.id.split("-")[1], false)
+        if (id !== sectionRoot.id) {
+            target.scrollIntoView({ behavior: "smooth", block: "start" })
+        }
+    } else {
+        target.scrollIntoView({ behavior: "smooth", block: "start" })
     }
 
     if (recordHash) {
-        window.location.hash = '#' + id
+        window.location.hash = "#" + id
     }
-
 }
 
 function tag(id) {
@@ -764,7 +783,136 @@ function bookSectionHash(section) {
     if (String(numbered) === section && numbered >= 1) {
         return "#section-" + numbered
     }
+    if (section === "section-1") {
+        return ""
+    }
     return "#" + section
+}
+
+/**
+ * Collects leaf section ids from a bookInfo chapter/section tree.
+ * @param {{ id?: string; sections?: unknown[] } | null | undefined} node - Chapter or nested section.
+ */
+function flattenSectionIds(node) {
+    if (!node || !Array.isArray(node.sections)) {
+        return []
+    }
+    /** @type {string[]} */
+    const ids = []
+    for (const child of node.sections) {
+        if (!child || typeof child !== "object") {
+            continue
+        }
+        const section = /** @type {{ id?: string; sections?: unknown[] }} */ (child)
+        if (Array.isArray(section.sections) && section.sections.length > 0) {
+            ids.push(...flattenSectionIds(section))
+        } else if (typeof section.id === "string" && section.id.trim()) {
+            ids.push(section.id.trim())
+        }
+    }
+    return ids
+}
+
+/**
+ * Returns ordered in-chapter section elements (TOC heading ids, else .chapter-section).
+ */
+function chapterSectionElements() {
+    const chapterId = currentChapterId()
+    const chapter = Array.isArray(globals.bookInfo?.chapters)
+        ? globals.bookInfo.chapters.find((c) => String(c.id) === String(chapterId))
+        : null
+    const fromToc = flattenSectionIds(chapter)
+        .map((id) => tag(id))
+        .filter((el) => el instanceof HTMLElement)
+    if (fromToc.length > 0) {
+        return fromToc
+    }
+    return [...document.querySelectorAll(".chapter-section")].filter(
+        (el) => el instanceof HTMLElement && el.id && el.style.display !== "none",
+    )
+}
+
+/**
+ * Returns the section element id currently in view, or null for the chapter intro.
+ */
+function activeChapterSectionId() {
+    const sections = chapterSectionElements()
+    if (sections.length === 0) {
+        return null
+    }
+    const header = document.getElementsByTagName("header")[0]
+    const offset = (header?.offsetHeight || 0) + 8
+    const first = sections[0]
+    if (window.scrollY < 24 && first.getBoundingClientRect().top > offset + 40) {
+        return null
+    }
+    let active = first
+    for (const el of sections) {
+        if (el.getBoundingClientRect().top <= offset) {
+            active = el
+        } else {
+            break
+        }
+    }
+    return active.id || null
+}
+
+/**
+ * Updates the URL hash to match the section in view (no scroll jump).
+ */
+function syncHashToSectionInView() {
+    if (globals.suppressSectionScrollSpy) {
+        return
+    }
+    const sectionId = activeChapterSectionId()
+    const key = sectionId || ""
+    if (key === globals.lastScrollSectionKey) {
+        return
+    }
+    globals.lastScrollSectionKey = key
+    const savedId = normalizeSectionMarker(sectionId)
+    const nextHash = bookSectionHash(savedId)
+    const currentHash = window.location.hash || ""
+    if (currentHash !== nextHash) {
+        history.replaceState(null, "", window.location.pathname + window.location.search + nextHash)
+    }
+    scheduleBookActivitySave(savedId)
+}
+
+/**
+ * Normalizes a DOM section id for activity/hash (e.g. section-3 → 3).
+ * @param {string | null | undefined} sectionId - Element id or marker.
+ */
+function normalizeSectionMarker(sectionId) {
+    if (!sectionId) {
+        return "1"
+    }
+    const numbered = /^section-(\d+)$/.exec(sectionId)
+    if (numbered) {
+        return numbered[1]
+    }
+    return sectionId
+}
+
+/**
+ * Binds a throttled scroll listener that keeps the hash aligned with the section in view.
+ */
+function bindSectionScrollSpy() {
+    let ticking = false
+    window.addEventListener(
+        "scroll",
+        () => {
+            if (ticking) {
+                return
+            }
+            ticking = true
+            requestAnimationFrame(() => {
+                ticking = false
+                syncHashToSectionInView()
+            })
+        },
+        { passive: true },
+    )
 }
 
 /**
@@ -1571,7 +1719,7 @@ async function putBookActivity(position) {
 }
 
 /**
- * Debounces saving the current reading position.
+ * Debounces saving the current reading position (30s after the last change).
  * @param {string} [section] - Section to store; defaults to currentSectionId().
  */
 function scheduleBookActivitySave(section) {
@@ -1597,7 +1745,7 @@ function scheduleBookActivitySave(section) {
         globals.bookActivitySaveTimer = null
         console.log("book-activity: saving", { book, chapter, section: sectionId, path })
         void putBookActivity({ book, chapter, section: sectionId, path })
-    }, 400)
+    }, 30_000)
 }
 
 /**
